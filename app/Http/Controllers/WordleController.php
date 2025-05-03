@@ -15,7 +15,7 @@ class WordleController extends Controller
             ['word' => 'LARVA'] // palabra fija por ahora
         );
 
-        return view('games.wordle', ['challenge' => $challenge]);
+        return view('games.wordle.wordle', ['challenge' => $challenge]);
     }
 
     private function quitarTildes($cadena)
