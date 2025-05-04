@@ -18,5 +18,6 @@
     <footer class="bg-gray-800 p-4 text-center text-sm text-gray-500">
         &copy; 2025 PlayZeta. Todos los derechos reservados.
     </footer>
+@stack('scripts')
 </body>
 </html>
