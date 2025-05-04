@@ -1,17 +1,23 @@
 @extends('layout')
 
 @section('content')
-    <div class="text-center">
-        <h2 class="text-4xl font-semibold mb-4">Bienvenido a PlayZeta</h2>
-        <p class="mb-6 text-gray-400">Elige cómo quieres empezar</p>
+<div class="min-h-screen bg-gradient-to-br from-zinc-900 to-black flex flex-col justify-center items-center text-white px-4">
+    <h1 class="text-6xl font-extrabold tracking-widest text-violet-500 drop-shadow-md animate-pulse mb-6">PlayZeta</h1>
+    <p class="text-xl mb-10 text-zinc-300">Elige cómo quieres jugar hoy</p>
 
-        <div class="space-x-4">
-            <button class="bg-indigo-600 hover:bg-indigo-500 px-6 py-2 rounded-lg font-medium">
-                Jugar como invitado
-            </button>
-            <button class="bg-gray-700 hover:bg-gray-600 px-6 py-2 rounded-lg font-medium">
-                Acceder
-            </button>
-        </div>
+    <div class="flex flex-col gap-4 w-full max-w-sm">
+        <a href="{{ route('login') }}"
+           class="bg-gradient-to-r from-purple-600 to-pink-500 text-white py-3 px-6 rounded-xl font-semibold text-lg shadow-lg hover:scale-105 transition-transform duration-300 text-center">
+            Iniciar sesión / Registrarse
+        </a>
+        <a href="{{ route('games.index') }}"
+           class="bg-zinc-800 border border-zinc-600 py-3 px-6 rounded-xl font-semibold text-lg text-white hover:bg-zinc-700 transition text-center">
+            Jugar como invitado
+        </a>
     </div>
+
+    <div class="mt-16 opacity-10 text-9xl font-black text-zinc-700 select-none pointer-events-none animate-bounce">
+        Z
+    </div>
+</div>
 @endsection
