@@ -14,7 +14,7 @@ class BattleshipController extends Controller
     public function index()
     {
         $games = BattleshipGame::where('user_id', auth()->id())
-                    ->orderBy('created_at', 'desc')
+                    ->orderBy('created_at','desc')
                     ->get();
 
         return view('games.battleship.index', compact('games'));
@@ -23,7 +23,7 @@ class BattleshipController extends Controller
     public function leaderboard()
     {
         $scores = BattleshipScore::with('user')
-                     ->orderBy('score', 'desc')
+                     ->orderBy('score','desc')
                      ->limit(50)
                      ->get();
 
@@ -60,11 +60,11 @@ class BattleshipController extends Controller
             ]);
         }
 
-        if ($data['mode'] === 'PVP') {
-            return redirect()->route('battleship.lobby', $game);
+        if ($data['mode'] === 'IA') {
+            return redirect()->route('battleship.setup.view', $game);
         }
 
-        return redirect()->route('battleship.setup.view', $game);
+        return redirect()->route('battleship.lobby', $game);
     }
 
     public function lobby(BattleshipGame $battleship_game)
@@ -140,7 +140,7 @@ class BattleshipController extends Controller
         $otherBoard = $battleship_game->boards()
                        ->where('owner',$otherOwner)
                        ->first();
-        $bothPlaced = !empty($otherBoard->ships);
+        $bothPlaced = ! empty($otherBoard->ships);
 
         if ($bothPlaced) {
             $battleship_game->status = 'playing';
@@ -205,7 +205,7 @@ class BattleshipController extends Controller
 
         $coordsAI = $resAI = null;
         if ($battleship_game->mode === 'IA') {
-            [$coordsAI,$resAI] = $this->aiShot($battleship_game,$playerBoard);
+            [$coordsAI,$resAI] = $this->aiShot($battleship_game, $playerBoard);
         }
 
         [$gameOver,$winner] = $this->checkGameOver($playerBoard,$oppBoard);
@@ -262,7 +262,7 @@ class BattleshipController extends Controller
                 $board->save();
 
                 $allHit = collect($ship['cells'])
-                          ->every(fn($c) => in_array($c, $hits));
+                          ->every(fn($c)=>in_array($c,$hits));
 
                 return [$allHit ? 'hundido' : 'tocado', $allHit];
             }
@@ -287,14 +287,14 @@ class BattleshipController extends Controller
         $shotsAI = $game->moves()
                        ->where('mover','opponent')
                        ->get()
-                       ->map(fn($m) => [$m->x, $m->y])
+                       ->map(fn($m)=>[$m->x,$m->y])
                        ->toArray();
 
-        $avail = array_filter($all, fn($c) => !in_array($c, $shotsAI));
+        $avail = array_filter($all, fn($c)=>!in_array($c,$shotsAI));
         $choice = $avail[array_rand($avail)];
-        [$x, $y] = $choice;
+        [$x,$y] = $choice;
 
-        [$res,] = $this->processShot($playerBoard, $x, $y);
+        [$res,] = $this->processShot($playerBoard,$x,$y);
         $game->moves()->create([
             'mover' => 'opponent',
             'x'     => $x,
@@ -302,7 +302,7 @@ class BattleshipController extends Controller
             'result'=> $res,
         ]);
 
-        return [[$x, $y], $res];
+        return [[$x,$y], $res];
     }
 
     protected function checkGameOver(BattleshipBoard $p, BattleshipBoard $o): array
@@ -312,15 +312,15 @@ class BattleshipController extends Controller
 
         $allSunk = fn(array $ships, array $hits) =>
             collect($ships)
-            ->every(fn($s) =>
-                collect($s['cells'])->every(fn($c) => in_array($c, $hits))
+            ->every(fn($s)=>
+                collect($s['cells'])->every(fn($c)=>in_array($c,$hits))
             );
 
-        $oppSunk = $allSunk($o->ships, $hitsO);
-        $youSunk = $allSunk($p->ships, $hitsP);
+        $oppSunk = $allSunk($o->ships,$hitsO);
+        $youSunk = $allSunk($p->ships,$hitsP);
 
-        if ($oppSunk && !$youSunk) return [true,'player'];
-        if ($youSunk)            return [true,'opponent'];
+        if ($oppSunk && ! $youSunk) return [true,'player'];
+        if ($youSunk) return [true,'opponent'];
         return [false,null];
     }
 
@@ -331,30 +331,42 @@ class BattleshipController extends Controller
 
         foreach ($sizes as $size) {
             $placed = false;
-            while (!$placed) {
+            while (! $placed) {
                 $ori = rand(0,1) ? 'horizontal' : 'vertical';
-                $x = rand(0,9); $y = rand(0,9);
+                $x   = rand(0,9);
+                $y   = rand(0,9);
                 $cells = [];
 
-                for ($i=0; $i<$size; $i++) {
+                for ($i = 0; $i < $size; $i++) {
                     $xi = $ori === 'horizontal' ? $x + $i : $x;
                     $yi = $ori === 'vertical'   ? $y + $i : $y;
-                    if ($xi > 9 || $yi > 9) { $cells = []; break; }
+                    if ($xi > 9 || $yi > 9) {
+                        $cells = [];
+                        break;
+                    }
                     $cells[] = [$xi, $yi];
                 }
 
-                if (count($cells) !== $size) continue;
+                if (count($cells) !== $size) {
+                    continue;
+                }
 
+                // comprobar solapamiento manualmente
                 $overlap = false;
-                foreach ($ships as $s) {
-                    if (count(array_intersect($s['cells'], $cells)) > 0) {
-                        $overlap = true; break;
+                foreach ($ships as $existing) {
+                    foreach ($existing['cells'] as $ec) {
+                        foreach ($cells as $nc) {
+                            if ($ec[0] === $nc[0] && $ec[1] === $nc[1]) {
+                                $overlap = true;
+                                break 3;
+                            }
+                        }
                     }
                 }
 
-                if (!$overlap) {
+                if (! $overlap) {
                     $ships[] = ['size'=>$size,'cells'=>$cells];
-                    $placed = true;
+                    $placed  = true;
                 }
             }
         }

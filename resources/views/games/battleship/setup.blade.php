@@ -4,7 +4,9 @@
 @section('content')
 <div class="battleship-container p-6">
   <h1 class="text-3xl font-bold mb-4">Coloca tus barcos</h1>
-  <p class="mb-6">Arrastra y sitúa tus barcos en el tablero de 10×10. Cuando termines, haz clic en “¡A jugar!”.</p>
+  <p class="mb-6">
+    Arrastra y sitúa tus barcos en el tablero de 10×10. Cuando hayas colocado todos, haz clic en “¡A jugar!”.
+  </p>
 
   <div class="flex items-start">
     {{-- Orientación --}}
@@ -24,7 +26,7 @@
       </div>
     </div>
 
-    {{-- Barcos --}}
+    {{-- Paleta de barcos --}}
     <div class="flex flex-col">
       @php
         $ships = [
@@ -43,7 +45,7 @@
           data-size="{{ $ship['size'] }}"
           data-color="{{ $ship['color'] }}"
           data-preview="{{ $ship['preview'] }}"
-          class="ship mb-3 p-2 text-white text-center rounded cursor-grab hover:opacity-90 active:cursor-grabbing {{ $ship['color'] }}"
+          class="ship mb-3 p-2 text-white text-center rounded cursor-grab hover:opacity-90 {{ $ship['color'] }}"
         >
           {{ $ship['label'] }} ({{ $ship['size'] }})
         </div>
@@ -71,7 +73,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const shipEls   = Array.from(document.querySelectorAll('.ship'));
   const startBtn  = document.getElementById('start-game');
   const statusEl  = document.getElementById('status');
-  const setupUrl  = "{{ route('battleship.setup', ['battleship_game'=>$battleship_game->id]) }}";
+  const setupUrl  = "{{ route('battleship.setup', ['battleship_game' => $battleship_game->id]) }}";
 
   let orientation   = 'horizontal';
   let currentShip   = null;
@@ -81,10 +83,11 @@ document.addEventListener('DOMContentLoaded', () => {
   // Alternar orientación
   rotateBtn.addEventListener('click', () => {
     orientation = orientation === 'horizontal' ? 'vertical' : 'horizontal';
-    rotateBtn.textContent = 'Orientación: ' + (orientation === 'horizontal' ? 'Horizontal' : 'Vertical');
+    rotateBtn.textContent =
+      'Orientación: ' + (orientation === 'horizontal' ? 'Horizontal' : 'Vertical');
   });
 
-  // Preparar dragstart
+  // Iniciar drag de la paleta
   shipEls.forEach(el => {
     el.addEventListener('dragstart', () => {
       currentShip = {
@@ -97,7 +100,12 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   });
 
+  // Limpiar preview
   function clearPreview() {
+    if (!currentShip) {
+      previewCells = [];
+      return;
+    }
     previewCells.forEach(c => {
       c.classList.remove(currentShip.preview);
       c.classList.add('bg-gray-800');
@@ -118,7 +126,9 @@ document.addEventListener('DOMContentLoaded', () => {
         const xi = orientation === 'horizontal' ? x + i : x;
         const yi = orientation === 'vertical'   ? y + i : y;
         if (xi > 9 || yi > 9) { clearPreview(); return; }
-        const c = boardEl.querySelector(`.battleship-cell[data-x="${xi}"][data-y="${yi}"]`);
+        const c = boardEl.querySelector(
+          `.battleship-cell[data-x="${xi}"][data-y="${yi}"]`
+        );
         if (c.dataset.occupiedBy) { clearPreview(); return; }
         cells.push(c);
       }
@@ -137,31 +147,72 @@ document.addEventListener('DOMContentLoaded', () => {
     cell.addEventListener('drop', () => {
       if (!currentShip || previewCells.length !== currentShip.size) return;
 
-      // Finalizar colocación
+      // Colocar barco
       previewCells.forEach(c => {
         c.classList.remove(currentShip.preview);
         c.classList.add(currentShip.color);
         c.dataset.occupiedBy = currentShip.id;
       });
+
+      // Registro del barco colocado
       const coords = previewCells.map(c => [+c.dataset.x, +c.dataset.y]);
-      placedShips.push({ size: currentShip.size, cells: coords });
+      const shipRecord = {
+        id:    currentShip.id,
+        size:  currentShip.size,
+        cells: coords,
+        color: currentShip.color,
+        el:    currentShip.el
+      };
+      placedShips.push(shipRecord);
 
-      // Deshabilitar barco en paleta
+      // Bloquear barco en paleta
       currentShip.el.draggable = false;
-      currentShip.el.classList.add('opacity-50', 'cursor-not-allowed');
+      currentShip.el.classList.add('opacity-50','cursor-not-allowed');
 
+      // Permitir recolocar al hacer clic en cualquiera de sus celdas
+      shipRecord.cells.forEach(([xi, yi]) => {
+        const cellClick = boardEl.querySelector(
+          `.battleship-cell[data-x="${xi}"][data-y="${yi}"]`
+        );
+        const handler = () => {
+          // Quitar visual de todas las celdas del barco
+          shipRecord.cells.forEach(([x0, y0]) => {
+            const c0 = boardEl.querySelector(
+              `.battleship-cell[data-x="${x0}"][data-y="${y0}"]`
+            );
+            c0.classList.remove(shipRecord.color);
+            c0.classList.add('bg-gray-800');
+            delete c0.dataset.occupiedBy;
+            c0.removeEventListener('click', handler);
+          });
+          // Reactivar barco en paleta
+          shipRecord.el.draggable = true;
+          shipRecord.el.classList.remove('opacity-50','cursor-not-allowed');
+          // Eliminar del array placedShips
+          const idx = placedShips.findIndex(s => s.id === shipRecord.id);
+          if (idx !== -1) placedShips.splice(idx,1);
+          // Desactivar “¡A jugar!” si ya no están todos
+          if (placedShips.length !== shipEls.length) {
+            startBtn.setAttribute('disabled','disabled');
+            statusEl.textContent = '';
+          }
+        };
+        cellClick.addEventListener('click', handler);
+      });
+
+      // Limpiar estado de preview y currentShip
       currentShip = null;
-      clearPreview();
+      previewCells = [];
 
-      // **Habilitar** el botón cuando estén todos colocados
+      // Habilitar botón si todos los barcos están colocados
       if (placedShips.length === shipEls.length) {
-        startBtn.disabled = false;
-        statusEl.textContent = '';
+        startBtn.removeAttribute('disabled');
+        statusEl.textContent = '¡Listo para jugar!';
       }
     });
   });
 
-  // Enviar posiciones
+  // Enviar posiciones al servidor
   startBtn.addEventListener('click', async () => {
     statusEl.textContent = '';
     try {
@@ -170,7 +221,7 @@ document.addEventListener('DOMContentLoaded', () => {
         credentials: 'same-origin',
         headers: {
           'Content-Type': 'application/json',
-          'Accept': 'application/json',
+          'Accept':       'application/json',
           'X-CSRF-TOKEN': '{{ csrf_token() }}'
         },
         body: JSON.stringify({
@@ -179,18 +230,22 @@ document.addEventListener('DOMContentLoaded', () => {
       });
       const json = await res.json();
 
+      if (!res.ok) {
+        console.error('Error 500 del servidor:', json.message);
+        return statusEl.textContent = `Error interno: ${json.message}`;
+      }
       if (!json.ok) {
         return alert('Error guardando posiciones');
       }
       if (json.start) {
-        window.location.href = "{{ route('battleship.play', $battleship_game) }}";
+        window.location.href =
+          "{{ route('battleship.play', ['battleship_game' => $battleship_game->id]) }}";
       } else {
         statusEl.textContent = 'Esperando a que el rival coloque sus barcos…';
       }
-
     } catch (err) {
-      console.error(err);
-      statusEl.textContent = 'Error al guardar, inténtalo de nuevo';
+      console.error('Fetch error:', err);
+      statusEl.textContent = 'Error de red, inténtalo de nuevo';
     }
   });
 });
