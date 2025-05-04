@@ -3,6 +3,7 @@
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\WordleController;
+use App\Http\Controllers\SpeedClickController;
 
 /*
 |--------------------------------------------------------------------------
@@ -23,14 +24,15 @@ Route::get('/games', function () {
 // Wordle y sus variantes
 Route::get('/wordle', [WordleController::class, 'index'])->name('wordle.index');
 Route::post('/wordle/check', [WordleController::class, 'check'])->name('wordle.check');
-
 Route::get('/wordle/advanced', function () {
     return view('games.wordle_advanced');
 })->name('wordle.advanced');
-
 Route::get('/wordle/nn-ready', function () {
     return view('games.wordle_nn_ready');
 })->name('wordle.nn_ready');
+
+// Speed Click
+Route::get('/speedclick', [SpeedClickController::class, 'index'])->name('speedclick.index');
 
 // Dashboard (usuarios logueados)
 Route::get('/dashboard', function () {
