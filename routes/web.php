@@ -3,7 +3,7 @@
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\WordleController;
-use App\Http\Controllers\BattleshipController;  
+use App\Http\Controllers\BattleshipController;
 use App\Models\BattleshipGame;
 
 /*
@@ -46,22 +46,56 @@ Route::middleware('auth')->group(function () {
     Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');
 });
 
-// Rutas de battleship
-Route::middleware('auth')->prefix('battleship')->name('battleship.')->group(function () {
-    // Panel principal y clasificación
-    Route::get('/',                    [BattleshipController::class, 'index'])->name('index');
-    Route::get('/leaderboard',        [BattleshipController::class, 'leaderboard'])->name('leaderboard');
+// Battleship (Clásico vs IA y PVP)
+Route::prefix('battleship')->group(function () {
+    // 1. Listado de partidas
+    Route::get('/', [BattleshipController::class, 'index'])
+         ->name('battleship.index');
 
-    // Crear nueva partida
-    Route::get('/create',             [BattleshipController::class, 'create'])->name('create');
-    Route::post('/',                  [BattleshipController::class, 'store'])->name('store');
+    // 2. Crear nueva partida
+    Route::get('create', [BattleshipController::class, 'create'])
+         ->name('battleship.create');
+    Route::post('/', [BattleshipController::class, 'store'])
+         ->name('battleship.store');
 
-    // Mostrar partida (setup o play)
-    Route::get('/{battleship_game}',  [BattleshipController::class, 'show'])->name('show');
+    // 3. Clasificación
+    Route::get('leaderboard', [BattleshipController::class, 'leaderboard'])
+         ->name('battleship.leaderboard');
 
-    // AJAX: setup, move y estado
-    Route::post('/{battleship_game}/setup', [BattleshipController::class, 'setup'])->name('setup');
-    Route::post('/{battleship_game}/move',  [BattleshipController::class, 'move'])->name('move');
-    Route::get('/{battleship_game}/state',  [BattleshipController::class, 'state'])->name('state');
+    // 4. Lobby PVP: compartir enlace y esperar rival
+    Route::get('{battleship_game}/lobby', [BattleshipController::class, 'lobby'])
+         ->whereNumber('battleship_game')
+         ->name('battleship.lobby');
+
+    // 5. Join PVP: el segundo jugador se une
+    Route::get('{battleship_game}/join', [BattleshipController::class, 'join'])
+         ->whereNumber('battleship_game')
+         ->name('battleship.join');
+
+    // 6. GET formulario de setup (colocar barcos)
+    Route::get('{battleship_game}/setup', [BattleshipController::class, 'showSetup'])
+         ->whereNumber('battleship_game')
+         ->name('battleship.setup.view');
+
+    // 7. POST positions de setup
+    Route::post('{battleship_game}/setup', [BattleshipController::class, 'setup'])
+         ->whereNumber('battleship_game')
+         ->name('battleship.setup');
+
+    // 8. GET pantalla de juego (play)
+    Route::get('{battleship_game}/play', [BattleshipController::class, 'showPlay'])
+         ->whereNumber('battleship_game')
+         ->name('battleship.play');
+
+    // 9. POST disparo
+    Route::post('{battleship_game}/move', [BattleshipController::class, 'move'])
+         ->whereNumber('battleship_game')
+         ->name('battleship.move');
+
+    // 10. Estado completo (polling PVP)
+    Route::get('{battleship_game}/state', [BattleshipController::class, 'state'])
+         ->whereNumber('battleship_game')
+         ->name('battleship.state');
 });
-require __DIR__.'/auth.php';
+
+require __DIR__ . '/auth.php';
