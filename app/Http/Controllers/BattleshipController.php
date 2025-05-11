@@ -8,14 +8,16 @@ use App\Models\BattleshipGame;
 use App\Models\BattleshipBoard;
 use App\Models\BattleshipMove;
 use App\Models\BattleshipScore;
+use Illuminate\Support\Str;
+use App\Models\User;
 
 class BattleshipController extends Controller
 {
     public function index()
     {
         $games = BattleshipGame::where('user_id', auth()->id())
-                    ->orderBy('created_at','desc')
-                    ->get();
+            ->orderBy('created_at', 'desc')
+            ->get();
 
         return view('games.battleship.index', compact('games'));
     }
@@ -23,9 +25,9 @@ class BattleshipController extends Controller
     public function leaderboard()
     {
         $scores = BattleshipScore::with('user')
-                     ->orderBy('score','desc')
-                     ->limit(50)
-                     ->get();
+            ->orderBy('score', 'desc')
+            ->limit(50)
+            ->get();
 
         return view('games.battleship.leaderboard', compact('scores'));
     }
@@ -38,12 +40,27 @@ class BattleshipController extends Controller
     public function store(Request $request)
     {
         $data = $request->validate([
-            'mode'       => ['required', Rule::in(['IA','PVP'])],
-            'difficulty' => ['nullable', Rule::in(['easy','medium','hard'])],
+            'mode'       => ['required', Rule::in(['IA', 'PVP'])],
+            'difficulty' => ['nullable', Rule::in(['easy', 'medium', 'hard'])],
         ]);
 
+        $userId = auth()->id();
+
+        if (!auth()->check()) {
+            if (!session()->has('guest_user_id')) {
+                $guest = User::create([
+                    'name'     => 'Invitado #' . Str::random(5),
+                    'email'    => 'guest_' . Str::uuid() . '@example.com',
+                    'password' => bcrypt(Str::random(16)), // contraseña aleatoria
+                ]);
+                session(['guest_user_id' => $guest->id]);
+            }
+
+            $userId = session('guest_user_id');
+        }
+
         $game = BattleshipGame::create([
-            'user_id'     => auth()->id(),
+            'user_id'     => $userId,
             'opponent_id' => null,
             'mode'        => $data['mode'],
             'difficulty'  => $data['mode'] === 'IA' ? $data['difficulty'] : null,
@@ -51,7 +68,7 @@ class BattleshipController extends Controller
             'turn'        => 'player',
         ]);
 
-        foreach (['player','opponent'] as $owner) {
+        foreach (['player', 'opponent'] as $owner) {
             BattleshipBoard::create([
                 'game_id' => $game->id,
                 'owner'   => $owner,
@@ -74,7 +91,8 @@ class BattleshipController extends Controller
 
     public function join(BattleshipGame $battleship_game)
     {
-        if (auth()->check()
+        if (
+            auth()->check()
             && $battleship_game->opponent_id === null
             && auth()->id() !== $battleship_game->user_id
         ) {
@@ -87,7 +105,8 @@ class BattleshipController extends Controller
 
     public function showSetup(BattleshipGame $battleship_game)
     {
-        if ($battleship_game->mode === 'PVP'
+        if (
+            $battleship_game->mode === 'PVP'
             && $battleship_game->opponent_id === null
         ) {
             return redirect()->route('battleship.lobby', $battleship_game);
@@ -98,10 +117,10 @@ class BattleshipController extends Controller
         }
 
         $board = $battleship_game->boards()
-                  ->where('owner','player')
-                  ->first();
+            ->where('owner', 'player')
+            ->first();
 
-        return view('games.battleship.setup', compact('battleship_game','board'));
+        return view('games.battleship.setup', compact('battleship_game', 'board'));
     }
 
     public function setup(Request $request, BattleshipGame $battleship_game)
@@ -118,28 +137,28 @@ class BattleshipController extends Controller
         $owner = $meIsCreator ? 'player' : 'opponent';
 
         $board = $battleship_game->boards()
-                 ->where('owner',$owner)
-                 ->firstOrFail();
+            ->where('owner', $owner)
+            ->firstOrFail();
         $board->ships = $data['ships'];
         $board->save();
 
         if ($battleship_game->mode === 'IA') {
             $opp = $battleship_game->boards()
-                   ->where('owner','opponent')
-                   ->first();
+                ->where('owner', 'opponent')
+                ->first();
             $opp->ships = $this->generateRandomShips();
             $opp->save();
 
             $battleship_game->status = 'playing';
             $battleship_game->save();
 
-            return response()->json(['ok'=>true,'start'=>true]);
+            return response()->json(['ok' => true, 'start' => true]);
         }
 
         $otherOwner = $owner === 'player' ? 'opponent' : 'player';
         $otherBoard = $battleship_game->boards()
-                       ->where('owner',$otherOwner)
-                       ->first();
+            ->where('owner', $otherOwner)
+            ->first();
         $bothPlaced = ! empty($otherBoard->ships);
 
         if ($bothPlaced) {
@@ -147,12 +166,13 @@ class BattleshipController extends Controller
             $battleship_game->save();
         }
 
-        return response()->json(['ok'=>true,'start'=>$bothPlaced]);
+        return response()->json(['ok' => true, 'start' => $bothPlaced]);
     }
 
     public function showPlay(BattleshipGame $battleship_game)
     {
-        if ($battleship_game->mode === 'PVP'
+        if (
+            $battleship_game->mode === 'PVP'
             && $battleship_game->opponent_id === null
         ) {
             return redirect()->route('battleship.lobby', $battleship_game);
@@ -178,16 +198,16 @@ class BattleshipController extends Controller
             $battleship_game->save();
         }
 
-        $playerBoard = $battleship_game->boards()->where('owner','player')->first();
-        $oppBoard    = $battleship_game->boards()->where('owner','opponent')->first();
+        $playerBoard = $battleship_game->boards()->where('owner', 'player')->first();
+        $oppBoard    = $battleship_game->boards()->where('owner', 'opponent')->first();
 
         if ($battleship_game->moves()
-                 ->where('mover','player')
-                 ->where('x',$data['x'])
-                 ->where('y',$data['y'])
-                 ->exists()
+            ->where('mover', 'player')
+            ->where('x', $data['x'])
+            ->where('y', $data['y'])
+            ->exists()
         ) {
-            return response()->json(['errors'=>['move'=>['Ya has disparado ahí.']]], 422);
+            return response()->json(['errors' => ['move' => ['Ya has disparado ahí.']]], 422);
         }
 
         [$resPlayer,] = $this->processShot($oppBoard, $data['x'], $data['y']);
@@ -195,7 +215,7 @@ class BattleshipController extends Controller
             'mover' => 'player',
             'x'     => $data['x'],
             'y'     => $data['y'],
-            'result'=> $resPlayer,
+            'result' => $resPlayer,
         ]);
 
         if ($battleship_game->mode === 'PVP') {
@@ -205,10 +225,10 @@ class BattleshipController extends Controller
 
         $coordsAI = $resAI = null;
         if ($battleship_game->mode === 'IA') {
-            [$coordsAI,$resAI] = $this->aiShot($battleship_game, $playerBoard);
+            [$coordsAI, $resAI] = $this->aiShot($battleship_game, $playerBoard);
         }
 
-        [$gameOver,$winner] = $this->checkGameOver($playerBoard,$oppBoard);
+        [$gameOver, $winner] = $this->checkGameOver($playerBoard, $oppBoard);
         if ($gameOver) {
             $battleship_game->status = 'finished';
             $battleship_game->save();
@@ -218,13 +238,13 @@ class BattleshipController extends Controller
                     'user_id'  => $battleship_game->user_id,
                     'score'    => 100,
                     'duration' => $battleship_game->updated_at
-                                     ->diffInSeconds($battleship_game->created_at),
+                        ->diffInSeconds($battleship_game->created_at),
                 ]);
             }
         }
 
         return response()->json([
-            'resultPlayer'=> $resPlayer,
+            'resultPlayer' => $resPlayer,
             'coordsAI'    => $coordsAI,
             'resultAI'    => $resAI,
             'gameOver'    => $gameOver,
@@ -236,8 +256,8 @@ class BattleshipController extends Controller
 
     public function state(BattleshipGame $battleship_game)
     {
-        $player = $battleship_game->boards()->where('owner','player')->first();
-        $opp    = $battleship_game->boards()->where('owner','opponent')->first();
+        $player = $battleship_game->boards()->where('owner', 'player')->first();
+        $opp    = $battleship_game->boards()->where('owner', 'opponent')->first();
 
         return response()->json([
             'opponent_id'   => $battleship_game->opponent_id,
@@ -256,19 +276,19 @@ class BattleshipController extends Controller
         $hits  = $board->hits ?? [];
 
         foreach ($ships as $ship) {
-            if (in_array([$x,$y], $ship['cells'])) {
-                $hits[] = [$x,$y];
+            if (in_array([$x, $y], $ship['cells'])) {
+                $hits[] = [$x, $y];
                 $board->hits = $hits;
                 $board->save();
 
                 $allHit = collect($ship['cells'])
-                          ->every(fn($c)=>in_array($c,$hits));
+                    ->every(fn($c) => in_array($c, $hits));
 
                 return [$allHit ? 'hundido' : 'tocado', $allHit];
             }
         }
 
-        $hits[] = [$x,$y];
+        $hits[] = [$x, $y];
         $board->hits = $hits;
         $board->save();
 
@@ -285,24 +305,24 @@ class BattleshipController extends Controller
         }
 
         $shotsAI = $game->moves()
-                       ->where('mover','opponent')
-                       ->get()
-                       ->map(fn($m)=>[$m->x,$m->y])
-                       ->toArray();
+            ->where('mover', 'opponent')
+            ->get()
+            ->map(fn($m) => [$m->x, $m->y])
+            ->toArray();
 
-        $avail = array_filter($all, fn($c)=>!in_array($c,$shotsAI));
+        $avail = array_filter($all, fn($c) => !in_array($c, $shotsAI));
         $choice = $avail[array_rand($avail)];
-        [$x,$y] = $choice;
+        [$x, $y] = $choice;
 
-        [$res,] = $this->processShot($playerBoard,$x,$y);
+        [$res,] = $this->processShot($playerBoard, $x, $y);
         $game->moves()->create([
             'mover' => 'opponent',
             'x'     => $x,
             'y'     => $y,
-            'result'=> $res,
+            'result' => $res,
         ]);
 
-        return [[$x,$y], $res];
+        return [[$x, $y], $res];
     }
 
     protected function checkGameOver(BattleshipBoard $p, BattleshipBoard $o): array
@@ -311,30 +331,31 @@ class BattleshipController extends Controller
         $hitsO = $o->hits ?? [];
 
         $allSunk = fn(array $ships, array $hits) =>
-            collect($ships)
-            ->every(fn($s)=>
-                collect($s['cells'])->every(fn($c)=>in_array($c,$hits))
+        collect($ships)
+            ->every(
+                fn($s) =>
+                collect($s['cells'])->every(fn($c) => in_array($c, $hits))
             );
 
-        $oppSunk = $allSunk($o->ships,$hitsO);
-        $youSunk = $allSunk($p->ships,$hitsP);
+        $oppSunk = $allSunk($o->ships, $hitsO);
+        $youSunk = $allSunk($p->ships, $hitsP);
 
-        if ($oppSunk && ! $youSunk) return [true,'player'];
-        if ($youSunk) return [true,'opponent'];
-        return [false,null];
+        if ($oppSunk && ! $youSunk) return [true, 'player'];
+        if ($youSunk) return [true, 'opponent'];
+        return [false, null];
     }
 
     private function generateRandomShips(): array
     {
-        $sizes = [5,4,3,3,2];
+        $sizes = [5, 4, 3, 3, 2];
         $ships = [];
 
         foreach ($sizes as $size) {
             $placed = false;
             while (! $placed) {
-                $ori = rand(0,1) ? 'horizontal' : 'vertical';
-                $x   = rand(0,9);
-                $y   = rand(0,9);
+                $ori = rand(0, 1) ? 'horizontal' : 'vertical';
+                $x   = rand(0, 9);
+                $y   = rand(0, 9);
                 $cells = [];
 
                 for ($i = 0; $i < $size; $i++) {
@@ -365,7 +386,7 @@ class BattleshipController extends Controller
                 }
 
                 if (! $overlap) {
-                    $ships[] = ['size'=>$size,'cells'=>$cells];
+                    $ships[] = ['size' => $size, 'cells' => $cells];
                     $placed  = true;
                 }
             }
