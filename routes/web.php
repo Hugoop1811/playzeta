@@ -33,6 +33,9 @@ Route::get('/wordle/nn-ready', function () {
 
 // Speed Click
 Route::get('/speedclick', [SpeedClickController::class, 'index'])->name('speedclick.index');
+Route::get('/speedclick/challenge', [SpeedClickController::class, 'challenge'])->name('speedclick.challenge');
+
+
 
 // Dashboard (usuarios logueados)
 Route::get('/dashboard', function () {

@@ -8,4 +8,10 @@ class SpeedClickController extends Controller
     {
         return view('games.speedclick');
     }
+
+    public function challenge()
+{
+    return view('games.challenge');
+}
+
 }
