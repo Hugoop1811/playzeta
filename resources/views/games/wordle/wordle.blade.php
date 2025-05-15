@@ -7,6 +7,9 @@
 </a>
 
     <h2 class="text-3xl font-bold mb-4">Wordle - Reto Diario</h2>
+    <div class="bg-blue-100 border border-blue-300 text-blue-800 px-4 py-3 rounded mb-6 max-w-xl mx-auto">
+    Solo se aceptan palabras de 5 letras que existan en el <strong>diccionario oficial de la RAE</strong>.
+</div>
 
     <div id="grid" class="grid grid-cols-5 gap-2 justify-center mb-6 flex-wrap max-w-md mx-auto">
         <!-- Aquí se mostrarán los intentos -->
@@ -26,9 +29,17 @@
         <!-- Se genera por JS -->
     </div>
     <input type="hidden" id="guessInput">
-  <a href="{{ route('wordle.time') }}" class="mt-4 inline-block text-indigo-400 hover:text-indigo-300 underline">
-    Probar el modo contrarreloj ⏱️
+  <a href="{{ route('wordle.time') }}" class="group block max-w-xs mx-auto mt-6 px-6 py-4 bg-gray-800 rounded-xl shadow-md hover:bg-gray-700 transition-colors">
+    <div class="flex items-center space-x-4 justify-center">
+        <svg class="w-6 h-6 text-indigo-400 group-hover:text-indigo-300 transition" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+        </svg>
+        <span class="text-indigo-300 font-semibold group-hover:text-indigo-200 text-lg">
+            Probar el modo contrarreloj
+        </span>
+    </div>
 </a>
+
 
 </a>
 
@@ -174,5 +185,16 @@
     function bloquearTeclado() {
         Object.values(teclas).forEach(b => b.disabled = true);
     }
+    document.addEventListener('keydown', (e) => {
+    const letra = e.key.toUpperCase();
+    if (letras.includes(letra) && intentoActual.length < 5) {
+        añadirLetra(letra);
+    } else if (e.key === 'Backspace') {
+        borrarLetra();
+    } else if (e.key === 'Enter') {
+        document.getElementById('submitBtn').click();
+    }
+});
+
 </script>
 @endsection
