@@ -6,6 +6,8 @@ use App\Http\Controllers\WordleController;
 use App\Http\Controllers\BattleshipController;
 use App\Models\BattleshipGame;
 use App\Http\Controllers\SpeedClickController;
+use App\Http\Controllers\WordleTimeAttackController;
+
 
 /*
 |--------------------------------------------------------------------------
@@ -26,12 +28,25 @@ Route::get('/games', function () {
 // Wordle y sus variantes
 Route::get('/wordle', [WordleController::class, 'index'])->name('wordle.index');
 Route::post('/wordle/check', [WordleController::class, 'check'])->name('wordle.check');
+
 Route::get('/wordle/advanced', function () {
-    return view('games.wordle_advanced');
+    return view('games.wordle.wordle_advanced');
 })->name('wordle.advanced');
+
 Route::get('/wordle/nn-ready', function () {
-    return view('games.wordle_nn_ready');
+    return view('games.wordle.wordle_nn_ready');
 })->name('wordle.nn_ready');
+
+// Wordle contrarreloj
+Route::get('/wordle/contrarreloj', [WordleController::class, 'timeAttack'])->name('wordle.time');
+Route::post('/wordle/contrarreloj/check', [WordleController::class, 'checkTimeMode'])->name('wordle.time.check');
+Route::post('/wordle/contrarreloj/guardar', [WordleController::class, 'saveTimeScore'])->name('wordle.time.save');
+
+Route::get('/api/wordle/random', [WordleController::class, 'getRandomWord']);
+Route::post('/api/wordle/time-attack-score', [WordleController::class, 'saveTimeAttackScore'])->middleware('auth');
+
+
+
 
 // Speed Click
 Route::get('/speedclick', [SpeedClickController::class, 'index'])->name('speedclick.index');
@@ -102,5 +117,4 @@ Route::prefix('battleship')->group(function () {
          ->whereNumber('battleship_game')
          ->name('battleship.state');
 });
-
 require __DIR__ . '/auth.php';
