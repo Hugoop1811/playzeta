@@ -14,22 +14,18 @@
     }
 
     #game-area {
-    position: absolute;
-    top: 1;
-    left: 0;
-    width: 100%;
-    height: calc(92vh - 60px); 
-    margin-top: 0px; 
-    background-color: #121212;
-    overflow: hidden;
-    z-index: 1;
-}
-
-
+        position: absolute;
+        top: 1;
+        left: 0;
+        width: 100%;
+        height: calc(92vh - 60px); 
+        margin-top: 0px; 
+        background-color: #121212;
+        overflow: hidden;
+        z-index: 1;
+    }
 
     #target {
-        width: 40px;
-        height: 40px;
         border-radius: 50%;
         background-color: #ff1744;
         position: absolute;
@@ -146,6 +142,32 @@
     .btn:hover {
         opacity: 0.9;
     }
+
+    select {
+    padding: 10px;
+    font-size: 1rem;
+    border-radius: 6px;
+    border: none;
+    margin-bottom: 10px;
+    background-color: #1e1e1e;
+    color: white;
+    width: 200px;
+    text-align: center;
+}
+select:focus {
+    outline: 2px solid #ff1744;
+}
+
+select option {
+    background-color: #1e1e1e;
+    color: white;
+}
+
+
+
+    label {
+        font-weight: bold;
+    }
 </style>
 
 <div id="game-area">
@@ -153,7 +175,34 @@
 
     <div id="start-screen" class="overlay-start">
         <h1>🧠 Speed Click Challenge</h1>
-        <p>Haz clic en los círculos lo más rápido posible. ¿Puedes hacer los 10 con precisión?</p>
+        <p>Haz clic en los círculos lo más rápido posible. ¿Puedes con todos?</p>
+
+        <div id="difficulty-settings">
+            <h2>Configuración de dificultad</h2>
+
+            <label for="size">Tamaño de diana:</label><br>
+            <select id="size">
+                <option value="30">Pequeño</option>
+                <option value="40" selected>Medio</option>
+                <option value="60">Grande</option>
+            </select><br><br>
+
+            <label for="speed">Velocidad de aparición:</label><br>
+            <select id="speed">
+                <option value="500">Rápida</option>
+                <option value="1000" selected>Normal</option>
+                <option value="1500">Lenta</option>
+            </select><br><br>
+
+            <label for="quantity">Cantidad de objetivos:</label><br>
+            <select id="quantity">
+                <option value="5">5</option>
+                <option value="10" selected>10</option>
+                <option value="20">20</option>
+            </select>
+        </div>
+
+        <br>
         <button id="start-btn" class="btn-start">Comenzar</button>
     </div>
 
@@ -176,13 +225,20 @@
     const result = document.getElementById("result");
     const startScreen = document.getElementById("start-screen");
 
+    const sizeSelect = document.getElementById("size");
+    const speedSelect = document.getElementById("speed");
+    const quantitySelect = document.getElementById("quantity");
+
     let clickCount = 0;
     let reactionTimes = [];
     let appearTime;
+    let totalTargets = 10;
+    let spawnDelay = 1000;
+    let targetSize = 40;
 
     function getRandomPosition() {
-        const maxLeft = gameArea.clientWidth - 40;
-        const maxTop = gameArea.clientHeight - 40;
+        const maxLeft = gameArea.clientWidth - targetSize;
+        const maxTop = gameArea.clientHeight - targetSize;
         const left = Math.floor(Math.random() * maxLeft);
         const top = Math.floor(Math.random() * maxTop);
         return { left, top };
@@ -192,12 +248,19 @@
         const { left, top } = getRandomPosition();
         target.style.left = left + "px";
         target.style.top = top + "px";
+        target.style.width = targetSize + "px";
+        target.style.height = targetSize + "px";
         target.style.display = "block";
         target.style.animation = "popIn 0.15s ease-out";
         appearTime = Date.now();
     }
 
     function startGame() {
+        // Obtener dificultad
+        targetSize = parseInt(sizeSelect.value);
+        spawnDelay = parseInt(speedSelect.value);
+        totalTargets = parseInt(quantitySelect.value);
+
         startScreen.style.display = "none";
         clickCount = 0;
         reactionTimes = [];
@@ -212,8 +275,8 @@
     }
 
     function nextClick() {
-        if (clickCount < 10) {
-            counter.textContent = `Objetivo ${clickCount + 1} de 10`;
+        if (clickCount < totalTargets) {
+            counter.textContent = `Objetivo ${clickCount + 1} de ${totalTargets}`;
             showTarget();
         } else {
             finishGame();
@@ -235,10 +298,11 @@
         reactionTimes.push(reactionTime);
         clickCount++;
         target.style.display = "none";
-        setTimeout(nextClick, 300);
+        setTimeout(nextClick, spawnDelay);
     });
 
     startBtn.addEventListener("click", startGame);
+
     playAgainBtn.addEventListener("click", () => {
         startScreen.style.display = "flex";
         result.style.display = "none";
