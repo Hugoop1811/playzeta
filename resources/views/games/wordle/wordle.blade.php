@@ -26,6 +26,12 @@
         <!-- Se genera por JS -->
     </div>
     <input type="hidden" id="guessInput">
+  <a href="{{ route('wordle.time') }}" class="mt-4 inline-block text-indigo-400 hover:text-indigo-300 underline">
+    Probar el modo contrarreloj ⏱️
+</a>
+
+</a>
+
 
 </div>
 
