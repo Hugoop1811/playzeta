@@ -3,41 +3,62 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
-use App\Models\BattleshipBoard;
-use App\Models\BattleshipMove;
-use App\Models\BattleshipScore;
-use App\Models\User;
+use Illuminate\Database\Eloquent\Relations\{BelongsTo, HasMany, HasOne};
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 
 class BattleshipGame extends Model
 {
-    protected $table = 'battleship_games';
-    protected $fillable = ['user_id','opponent_id','mode','difficulty','status','turn'];
+    use HasFactory;
 
-    public function user()
+    protected $table = 'battleship_games';
+
+    protected $fillable = [
+        'user_id',
+        'opponent_id',
+        'mode',
+        'difficulty',
+        'status',
+        'turn',
+        'invite_token',
+    ];
+
+    /**
+     * El creador de la partida (nullable para IA sin login).
+     */
+    public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);
     }
 
-    public function opponent()
+    /**
+     * El rival en PVP (nullable hasta que alguien se una).
+     */
+    public function opponent(): BelongsTo
     {
         return $this->belongsTo(User::class, 'opponent_id');
     }
 
-    public function boards()
+    /**
+     * Los dos tableros asociados (player y opponent).
+     */
+    public function boards(): HasMany
     {
-        // indicamos que la FK en battleship_boards es 'game_id'
         return $this->hasMany(BattleshipBoard::class, 'game_id');
     }
 
-    public function moves()
+    /**
+     * Todos los movimientos realizados en esta partida.
+     */
+    public function moves(): HasMany
     {
-        // idem para battleship_moves
         return $this->hasMany(BattleshipMove::class, 'game_id');
     }
 
-    public function score()
+    /**
+     * La puntuación/resultados finales de la partida.
+     */
+    public function score(): HasOne
     {
-        // idem para battleship_scores
         return $this->hasOne(BattleshipScore::class, 'game_id');
     }
 }

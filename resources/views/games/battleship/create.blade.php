@@ -1,37 +1,54 @@
+{{-- resources/views/games/battleship/create.blade.php --}}
 @extends('layout')
 
 @section('content')
-<div class="container">
-  <h1>Crear nueva partida de Hundir la Flota</h1>
-
-  <form action="{{ route('battleship.store') }}" method="POST">
+<div class="container mx-auto p-6 max-w-md">
+  <h1 class="text-2xl font-bold mb-4">Crear Nueva Partida</h1>
+  <form method="POST" action="{{ route('battleship.store') }}" class="space-y-4">
     @csrf
 
-    <div class="mb-3">
-      <label class="form-label">Modo de juego</label><br>
-      <label>
-        <input type="radio" name="mode" value="IA" checked
-               x-data x-on:change="document.getElementById('difficulty').disabled = false">
-        Versus IA
-      </label>
-      <label class="ms-3">
-        <input type="radio" name="mode" value="PVP"
-               x-data x-on:change="document.getElementById('difficulty').disabled = true">
-        Multijugador
-      </label>
-    </div>
-
-    <div class="mb-3">
-      <label for="difficulty" class="form-label">Dificultad IA</label>
-      <select name="difficulty" id="difficulty" class="form-select">
-        <option value="easy">Fácil</option>
-        <option value="medium">Medio</option>
-        <option value="hard">Difícil</option>
+    {{-- Modo de juego --}}
+    <div>
+      <label for="mode" class="block font-medium mb-1">Modo de juego</label>
+      <select id="mode" name="mode" required
+        class="w-full border border-gray-600 rounded px-3 py-2 bg-gray-800 text-white">
+        @foreach($modes as $value => $label)
+          <option value="{{ $value }}">{{ $label }}</option>
+        @endforeach
       </select>
     </div>
 
-    <button type="submit" class="btn btn-primary">Crear partida</button>
-    <a href="{{ route('battleship.index') }}" class="btn btn-secondary ms-2">Cancelar</a>
+    {{-- Dificultad IA (solo si elige IA) --}}
+    <div id="difficulty-group" class="hidden">
+      <label for="difficulty" class="block font-medium mb-1">Dificultad IA</label>
+      <select id="difficulty" name="difficulty"
+        class="w-full border border-gray-600 rounded px-3 py-2 bg-gray-800 text-white">
+        @foreach($difficulties as $value => $label)
+          <option value="{{ $value }}">{{ $label }}</option>
+        @endforeach
+      </select>
+    </div>
+
+    <button type="submit"
+      class="w-full px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700">
+      Crear Partida
+    </button>
   </form>
 </div>
 @endsection
+
+@push('scripts')
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+  const modeEl = document.getElementById('mode');
+  const diffGroup = document.getElementById('difficulty-group');
+
+  function toggleDifficulty() {
+    diffGroup.classList.toggle('hidden', modeEl.value !== 'IA');
+  }
+
+  modeEl.addEventListener('change', toggleDifficulty);
+  toggleDifficulty(); // al cargar la página
+});
+</script>
+@endpush

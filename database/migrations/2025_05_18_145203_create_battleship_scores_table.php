@@ -9,19 +9,22 @@ return new class extends Migration
     /**
      * Run the migrations.
      */
-    public function up(): void
+    public function up()
     {
         Schema::create('battleship_scores', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('game_id')->constrained('battleship_games')->onDelete('cascade');
-            $table->foreignId('user_id')->constrained()->onDelete('cascade');
-            // Puntos obtenidos
-            $table->integer('score');
-            // Duración de la partida en segundos
-            $table->integer('duration');
+            $table->foreignId('game_id')
+                ->constrained('battleship_games')
+                ->cascadeOnDelete();
+            $table->foreignId('user_id')
+                ->constrained()
+                ->cascadeOnDelete();
+            $table->integer('score');      // p.ej. 100 puntos por victoria
+            $table->integer('duration');   // en segundos
             $table->timestamps();
         });
     }
+
 
     /**
      * Reverse the migrations.
