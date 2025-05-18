@@ -4,187 +4,256 @@ namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
+use Illuminate\Support\Str;
 use App\Models\BattleshipGame;
 use App\Models\BattleshipBoard;
 use App\Models\BattleshipMove;
-use App\Models\BattleshipScore;
-use Illuminate\Support\Str;
-use App\Models\User;
 
 class BattleshipController extends Controller
 {
+    /** 1. Muestra todas las partidas del usuario (o públicas) */
     public function index()
     {
+        // Traemos tanto partidas VS IA como PVP creadas por este usuario (incluso las que estén en setup)
         $games = BattleshipGame::where('user_id', auth()->id())
             ->orderBy('created_at', 'desc')
             ->get();
 
+        // Se pasa a resources/views/games/battleship/index.blade.php
         return view('games.battleship.index', compact('games'));
     }
 
-    public function leaderboard()
-    {
-        $scores = BattleshipScore::with('user')
-            ->orderBy('score', 'desc')
-            ->limit(50)
-            ->get();
-
-        return view('games.battleship.leaderboard', compact('scores'));
-    }
-
+    /** 2. Formulario para elegir modo/dificultad */
     public function create()
     {
-        return view('games.battleship.create');
+        // Opciones de modo y dificultad para la vista
+        $modes = [
+            'IA'  => 'Vs IA (Juego contra la máquina)',
+            'PVP' => 'Multijugador Online',
+        ];
+        $difficulties = [
+            'easy'   => 'Fácil',
+            'medium' => 'Medio',
+            'hard'   => 'Difícil',
+        ];
+
+        // Se pasa a resources/views/games/battleship/create.blade.php
+        return view('games.battleship.create', compact('modes', 'difficulties'));
     }
 
+    /** 2.1. Crea la partida y redirige a setup o lobby */
     public function store(Request $request)
     {
+        // 1) Validación básica
         $data = $request->validate([
             'mode'       => ['required', Rule::in(['IA', 'PVP'])],
+            // dificultad sólo tiene sentido en IA; permitimos null pero validamos abajo
             'difficulty' => ['nullable', Rule::in(['easy', 'medium', 'hard'])],
         ]);
 
-        $userId = auth()->id();
-
-        if (!auth()->check()) {
-            if (!session()->has('guest_user_id')) {
-                $guest = User::create([
-                    'name'     => 'Invitado #' . Str::random(5),
-                    'email'    => 'guest_' . Str::uuid() . '@example.com',
-                    'password' => bcrypt(Str::random(16)), // contraseña aleatoria
-                ]);
-                session(['guest_user_id' => $guest->id]);
-            }
-
-            $userId = session('guest_user_id');
+        // 2) Si es VS IA, la dificultad es obligatoria
+        if ($data['mode'] === 'IA') {
+            $request->validate([
+                'difficulty' => ['required', Rule::in(['easy', 'medium', 'hard'])]
+            ]);
         }
 
+        // 3) Generar token de invitación sólo para PVP
+        $inviteToken = null;
+        if ($data['mode'] === 'PVP') {
+            // UUID es suficientemente único; la columna admite hasta 64 chars
+            $inviteToken = Str::uuid()->toString();
+        }
+
+        // 4) Crear la partida
+        //    - user_id: null si guest (IA sin login), o el ID si hay sesión
+        //    - opponent_id permanece null hasta que alguien se una en PVP
         $game = BattleshipGame::create([
-            'user_id'     => $userId,
-            'opponent_id' => null,
-            'mode'        => $data['mode'],
-            'difficulty'  => $data['mode'] === 'IA' ? $data['difficulty'] : null,
-            'status'      => 'setup',
-            'turn'        => 'player',
+            'user_id'      => auth()->id(),
+            'opponent_id'  => null,
+            'mode'         => $data['mode'],
+            'difficulty'   => $data['mode'] === 'IA' ? $data['difficulty'] : null,
+            'status'       => 'setup',
+            'turn'         => 'player',
+            'invite_token' => $inviteToken,
         ]);
 
+        // 5) Crear los dos tableros vacíos (player y opponent)
         foreach (['player', 'opponent'] as $owner) {
             BattleshipBoard::create([
                 'game_id' => $game->id,
                 'owner'   => $owner,
-                'ships'   => [],
-                'hits'    => [],
+                'ships'   => [],  // array vacío, se casteará a JSON
+                'hits'    => [],  // idem
             ]);
         }
 
-        if ($data['mode'] === 'IA') {
-            return redirect()->route('battleship.setup.view', $game);
-        }
-
-        return redirect()->route('battleship.lobby', $game);
+        // 6) Redirigir al formulario de colocación de barcos
+        return redirect()->route('battleship.setup.view', $game);
     }
 
-    public function lobby(BattleshipGame $battleship_game)
-    {
-        return view('games.battleship.lobby', compact('battleship_game'));
-    }
-
-    public function join(BattleshipGame $battleship_game)
-    {
-        if (
-            auth()->check()
-            && $battleship_game->opponent_id === null
-            && auth()->id() !== $battleship_game->user_id
-        ) {
-            $battleship_game->opponent_id = auth()->id();
-            $battleship_game->save();
-        }
-
-        return redirect()->route('battleship.lobby', $battleship_game);
-    }
-
+    /** 3.1. Muestra el tablero de colocación */
     public function showSetup(BattleshipGame $battleship_game)
     {
-        if (
-            $battleship_game->mode === 'PVP'
-            && $battleship_game->opponent_id === null
-        ) {
+        // Si es PVP y aún no hay oponente, vamos al lobby
+        if ($battleship_game->mode === 'PVP' && is_null($battleship_game->opponent_id)) {
             return redirect()->route('battleship.lobby', $battleship_game);
         }
 
+        // Si la partida ya no está en 'setup', vamos a jugar
         if ($battleship_game->status !== 'setup') {
             return redirect()->route('battleship.play', $battleship_game);
         }
 
+        // Cargamos el tablero “player”
         $board = $battleship_game->boards()
             ->where('owner', 'player')
-            ->first();
+            ->firstOrFail();
 
-        return view('games.battleship.setup', compact('battleship_game', 'board'));
+        // Pasamos la partida y el tablero a la vista
+        return view('games.battleship.setup', [
+            'battleship_game' => $battleship_game,
+            'board'           => $board,
+        ]);
     }
 
+    /** 3.2. Guarda posiciones; si IA genera rival y cambia status */
+    /**
+     * Recibe la configuración de barcos del jugador y, si es IA,
+     * crea también los del oponente y arranca la partida.
+     */
     public function setup(Request $request, BattleshipGame $battleship_game)
     {
+        // 1) Validar payload
         $data = $request->validate([
-            'ships'                => 'required|array',
-            'ships.*.size'         => 'required|integer|min:2|max:5',
-            'ships.*.cells'        => 'required|array',
-            'ships.*.cells.*.0'    => 'required|integer|min:0|max:9',
-            'ships.*.cells.*.1'    => 'required|integer|min:0|max:9',
+            'ships' => 'required|array|min:5|max:5',
+            'ships.*.size'  => 'required|integer|min:2|max:5',
+            'ships.*.cells' => 'required|array',
         ]);
 
-        $meIsCreator = auth()->id() === $battleship_game->user_id;
-        $owner = $meIsCreator ? 'player' : 'opponent';
-
-        $board = $battleship_game->boards()
-            ->where('owner', $owner)
+        // 2) Guardar los barcos del jugador
+        $playerBoard = $battleship_game
+            ->boards()
+            ->where('owner', 'player')
             ->firstOrFail();
-        $board->ships = $data['ships'];
-        $board->save();
+        $playerBoard->ships = $data['ships'];
+        $playerBoard->save();
 
+        // 3) Modo IA: generar tablero rival y arrancar
         if ($battleship_game->mode === 'IA') {
-            $opp = $battleship_game->boards()
+            $oppBoard = $battleship_game
+                ->boards()
                 ->where('owner', 'opponent')
-                ->first();
-            $opp->ships = $this->generateRandomShips();
-            $opp->save();
+                ->firstOrFail();
+
+            $oppBoard->ships = $this->generateRandomShips();
+            $oppBoard->save();
 
             $battleship_game->status = 'playing';
             $battleship_game->save();
 
-            return response()->json(['ok' => true, 'start' => true]);
+            return response()->json([
+                'ok'    => true,
+                'start' => true,
+            ]);
         }
 
-        $otherOwner = $owner === 'player' ? 'opponent' : 'player';
-        $otherBoard = $battleship_game->boards()
-            ->where('owner', $otherOwner)
-            ->first();
-        $bothPlaced = ! empty($otherBoard->ships);
+        // 4) Modo PVP: comprobamos si el otro ya colocó sus barcos
+        $oppBoard = $battleship_game
+            ->boards()
+            ->where('owner', 'opponent')
+            ->firstOrFail();
 
-        if ($bothPlaced) {
+        $otherPlaced = ! empty($oppBoard->ships);
+        if ($otherPlaced) {
+            // Ambos listos: arrancamos
             $battleship_game->status = 'playing';
             $battleship_game->save();
+
+            return response()->json([
+                'ok'    => true,
+                'start' => true,
+            ]);
         }
 
-        return response()->json(['ok' => true, 'start' => $bothPlaced]);
+        // El otro aún no ha colocado: esperamos en lobby/setup
+        return response()->json([
+            'ok'    => true,
+            'start' => false,
+        ]);
     }
 
-    public function showPlay(BattleshipGame $battleship_game)
+    /**
+     * Genera aleatoriamente la colocación de los barcos para la IA
+     * sin solaparse. Devuelve array de ['size'=>int,'cells'=>[[x,y],…]].
+     */
+    protected function generateRandomShips(): array
     {
-        if (
-            $battleship_game->mode === 'PVP'
-            && $battleship_game->opponent_id === null
-        ) {
-            return redirect()->route('battleship.lobby', $battleship_game);
+        $lengths = [5,4,3,3,2];
+        $placed  = [];
+        $grid    = array_fill(0,10, array_fill(0,10,false));
+
+        foreach ($lengths as $size) {
+            do {
+                $ori = rand(0,1) ? 'horizontal' : 'vertical';
+                $x   = rand(0, $ori==='horizontal' ? 10-$size : 9);
+                $y   = rand(0, $ori==='vertical'   ? 10-$size : 9);
+                $cells= [];
+                for ($i=0;$i<$size;$i++) {
+                    $xi = $ori==='horizontal' ? $x+$i : $x;
+                    $yi = $ori==='vertical'   ? $y+$i : $y;
+                    $cells[] = [$xi,$yi];
+                }
+                // validar solapes y adyacencia ortogonal
+                $ok = true;
+                foreach ($cells as [$xi,$yi]) {
+                    if ($grid[$yi][$xi]) { $ok=false; break; }
+                    foreach ([[1,0],[-1,0],[0,1],[0,-1]] as [$dx,$dy]) {
+                        $nx=$xi+$dx; $ny=$yi+$dy;
+                        if ($nx>=0 && $nx<10 && $ny>=0 && $ny<10 && $grid[$ny][$nx]) {
+                            $ok=false; break 2;
+                        }
+                    }
+                }
+            } while (! $ok);
+            foreach ($cells as [$xi,$yi]) {
+                $grid[$yi][$xi] = true;
+            }
+            $placed[] = ['size'=>$size,'cells'=>$cells];
         }
 
+        return $placed;
+    }
+
+    /** 4.1. Muestra el tablero de juego */
+    public function showPlay(BattleshipGame $battleship_game)
+    {
+        // Si aún en setup, redirigimos allí
         if ($battleship_game->status === 'setup') {
             return redirect()->route('battleship.setup.view', $battleship_game);
         }
 
-        return view('games.battleship.play', compact('battleship_game'));
+        // Si PVP y sin oponente, al lobby
+        if ($battleship_game->mode === 'PVP' && is_null($battleship_game->opponent_id)) {
+            return redirect()->route('battleship.lobby', $battleship_game);
+        }
+
+        // Cargamos ambos tableros
+        $playerBoard = $battleship_game->boards()
+            ->where('owner', 'player')
+            ->firstOrFail();
+        $oppBoard    = $battleship_game->boards()
+            ->where('owner', 'opponent')
+            ->firstOrFail();
+
+        return view('games.battleship.play', [
+            'battleship_game' => $battleship_game,
+            'playerBoard'     => $playerBoard,
+            'oppBoard'        => $oppBoard,
+        ]);
     }
 
+    /** 4.2. Procesa un disparo; retorna JSON con resultados y estado */
     public function move(Request $request, BattleshipGame $battleship_game)
     {
         $data = $request->validate([
@@ -192,206 +261,164 @@ class BattleshipController extends Controller
             'y' => 'required|integer|min:0|max:9',
         ]);
 
-        $battleship_game->refresh();
         if ($battleship_game->status !== 'playing') {
-            $battleship_game->status = 'playing';
-            $battleship_game->save();
+            return response()->json(['message'=>'La partida no está en curso.'], 422);
+        }
+        if ($battleship_game->turn !== 'player') {
+            return response()->json(['message'=>'No es tu turno.'], 422);
         }
 
-        $playerBoard = $battleship_game->boards()->where('owner', 'player')->first();
-        $oppBoard    = $battleship_game->boards()->where('owner', 'opponent')->first();
+        $oppBoard    = $battleship_game->boards()->where('owner','opponent')->firstOrFail();
+        $playerBoard = $battleship_game->boards()->where('owner','player')->firstOrFail();
 
-        if ($battleship_game->moves()
-            ->where('mover', 'player')
-            ->where('x', $data['x'])
-            ->where('y', $data['y'])
-            ->exists()
-        ) {
-            return response()->json(['errors' => ['move' => ['Ya has disparado ahí.']]], 422);
-        }
-
-        [$resPlayer,] = $this->processShot($oppBoard, $data['x'], $data['y']);
-        $battleship_game->moves()->create([
-            'mover' => 'player',
-            'x'     => $data['x'],
-            'y'     => $data['y'],
-            'result' => $resPlayer,
+        // 1) Disparo del jugador
+        $shotP = $this->processShot($oppBoard, $data['x'], $data['y']);
+        BattleshipMove::create([
+            'game_id' => $battleship_game->id,
+            'shooter' => 'player',
+            'x'       => $data['x'],
+            'y'       => $data['y'],
+            'result'  => $shotP['result'],
         ]);
 
-        if ($battleship_game->mode === 'PVP') {
-            $battleship_game->turn = 'opponent';
-            $battleship_game->save();
-        }
-
-        $coordsAI = $resAI = null;
-        if ($battleship_game->mode === 'IA') {
-            [$coordsAI, $resAI] = $this->aiShot($battleship_game, $playerBoard);
-        }
-
-        [$gameOver, $winner] = $this->checkGameOver($playerBoard, $oppBoard);
-        if ($gameOver) {
+        // Si el jugador hunde todo — fin inmediato
+        if ($shotP['gameOver']) {
             $battleship_game->status = 'finished';
             $battleship_game->save();
-            if ($winner === 'player') {
-                BattleshipScore::create([
-                    'game_id'  => $battleship_game->id,
-                    'user_id'  => $battleship_game->user_id,
-                    'score'    => 100,
-                    'duration' => $battleship_game->updated_at
-                        ->diffInSeconds($battleship_game->created_at),
-                ]);
-            }
+            return response()->json([
+                'resultPlayer'=> $shotP['result'],
+                'sunkCells'   => $shotP['cells'],
+                'coordsAI'    => null,
+                'resultAI'    => null,
+                'gameOver'    => true,
+                'winner'      => 'player',
+                'turn'        => 'player',
+            ]);
         }
 
+        // 2) Disparo de la IA
+        [$ax,$ay,$resAI,$sunkI,$overI,$cellsI] = $this->aiShot($playerBoard);
+        BattleshipMove::create([
+            'game_id' => $battleship_game->id,
+            'shooter' => 'opponent',
+            'x'       => $ax,
+            'y'       => $ay,
+            'result'  => $resAI,
+        ]);
+
+        // Si la IA hunde todo — fin
+        if ($overI) {
+            $battleship_game->status = 'finished';
+            $battleship_game->save();
+            return response()->json([
+                'resultPlayer'=> $shotP['result'],
+                'sunkCells'   => $shotP['cells'],
+                'coordsAI'    => [$ax,$ay],
+                'resultAI'    => $resAI,
+                'gameOver'    => true,
+                'winner'      => 'opponent',
+                'turn'        => 'player',
+            ]);
+        }
+
+        // 3) Continuar partida
+        $battleship_game->turn = 'player';
+        $battleship_game->save();
+
         return response()->json([
-            'resultPlayer' => $resPlayer,
-            'coordsAI'    => $coordsAI,
+            'resultPlayer'=> $shotP['result'],
+            'sunkCells'   => $shotP['cells'],
+            'coordsAI'    => [$ax,$ay],
             'resultAI'    => $resAI,
-            'gameOver'    => $gameOver,
-            'winner'      => $winner,
-            'turn'        => $battleship_game->turn,
-            'status'      => $battleship_game->status,
+            'gameOver'    => false,
+            'winner'      => null,
+            'turn'        => 'player',
         ]);
     }
 
-    public function state(BattleshipGame $battleship_game)
-    {
-        $player = $battleship_game->boards()->where('owner', 'player')->first();
-        $opp    = $battleship_game->boards()->where('owner', 'opponent')->first();
-
-        return response()->json([
-            'opponent_id'   => $battleship_game->opponent_id,
-            'playerHits'    => $player->hits    ?? [],
-            'playerShips'   => $player->ships   ?? [],
-            'opponentHits'  => $opp->hits       ?? [],
-            'opponentShips' => $opp->ships      ?? [],
-            'turn'          => $battleship_game->turn,
-            'status'        => $battleship_game->status,
-        ]);
-    }
-
+    /**
+     * Anota el disparo, determina resultado y si terminó el juego.
+     * Devuelve ['result'=>string,'cells'=>array(listado de celdas hundidas),'gameOver'=>bool].
+     */
     protected function processShot(BattleshipBoard $board, int $x, int $y): array
     {
-        $ships = $board->ships;
-        $hits  = $board->hits ?? [];
+        $hits  = $board->hits  ?? [];
+        $ships = $board->ships ?? [];
 
-        foreach ($ships as $ship) {
-            if (in_array([$x, $y], $ship['cells'])) {
-                $hits[] = [$x, $y];
-                $board->hits = $hits;
-                $board->save();
-
-                $allHit = collect($ship['cells'])
-                    ->every(fn($c) => in_array($c, $hits));
-
-                return [$allHit ? 'hundido' : 'tocado', $allHit];
-            }
+        // Evitar repetir disparo
+        if (collect($hits)->contains(fn($h)=> $h[0]===$x && $h[1]===$y)) {
+            return ['result'=>'agua','cells'=>[],'gameOver'=>false];
         }
 
-        $hits[] = [$x, $y];
+        // Anotar disparo
+        $hits[] = [$x,$y];
         $board->hits = $hits;
         $board->save();
 
-        return ['agua', false];
-    }
-
-    protected function aiShot(BattleshipGame $game, BattleshipBoard $playerBoard): array
-    {
-        $all = [];
-        for ($i = 0; $i < 10; $i++) {
-            for ($j = 0; $j < 10; $j++) {
-                $all[] = [$i, $j];
+        // ¿Ha tocado barco?
+        $hitShip = null;
+        foreach ($ships as $s) {
+            if (collect($s['cells'])->contains(fn($c)=> $c[0]===$x && $c[1]===$y)) {
+                $hitShip = $s['cells'];
+                break;
             }
         }
-
-        $shotsAI = $game->moves()
-            ->where('mover', 'opponent')
-            ->get()
-            ->map(fn($m) => [$m->x, $m->y])
-            ->toArray();
-
-        $avail = array_filter($all, fn($c) => !in_array($c, $shotsAI));
-        $choice = $avail[array_rand($avail)];
-        [$x, $y] = $choice;
-
-        [$res,] = $this->processShot($playerBoard, $x, $y);
-        $game->moves()->create([
-            'mover' => 'opponent',
-            'x'     => $x,
-            'y'     => $y,
-            'result' => $res,
-        ]);
-
-        return [[$x, $y], $res];
-    }
-
-    protected function checkGameOver(BattleshipBoard $p, BattleshipBoard $o): array
-    {
-        $hitsP = $p->hits ?? [];
-        $hitsO = $o->hits ?? [];
-
-        $allSunk = fn(array $ships, array $hits) =>
-        collect($ships)
-            ->every(
-                fn($s) =>
-                collect($s['cells'])->every(fn($c) => in_array($c, $hits))
-            );
-
-        $oppSunk = $allSunk($o->ships, $hitsO);
-        $youSunk = $allSunk($p->ships, $hitsP);
-
-        if ($oppSunk && ! $youSunk) return [true, 'player'];
-        if ($youSunk) return [true, 'opponent'];
-        return [false, null];
-    }
-
-    private function generateRandomShips(): array
-    {
-        $sizes = [5, 4, 3, 3, 2];
-        $ships = [];
-
-        foreach ($sizes as $size) {
-            $placed = false;
-            while (! $placed) {
-                $ori = rand(0, 1) ? 'horizontal' : 'vertical';
-                $x   = rand(0, 9);
-                $y   = rand(0, 9);
-                $cells = [];
-
-                for ($i = 0; $i < $size; $i++) {
-                    $xi = $ori === 'horizontal' ? $x + $i : $x;
-                    $yi = $ori === 'vertical'   ? $y + $i : $y;
-                    if ($xi > 9 || $yi > 9) {
-                        $cells = [];
-                        break;
-                    }
-                    $cells[] = [$xi, $yi];
-                }
-
-                if (count($cells) !== $size) {
-                    continue;
-                }
-
-                // comprobar solapamiento manualmente
-                $overlap = false;
-                foreach ($ships as $existing) {
-                    foreach ($existing['cells'] as $ec) {
-                        foreach ($cells as $nc) {
-                            if ($ec[0] === $nc[0] && $ec[1] === $nc[1]) {
-                                $overlap = true;
-                                break 3;
-                            }
-                        }
-                    }
-                }
-
-                if (! $overlap) {
-                    $ships[] = ['size' => $size, 'cells' => $cells];
-                    $placed  = true;
-                }
-            }
+        if (! $hitShip) {
+            return ['result'=>'agua','cells'=>[],'gameOver'=>false];
         }
 
-        return $ships;
+        // ¿Hundido el barco?
+        $allHit = collect($hitShip)->every(fn($c)=> in_array($c, $hits));
+        $result = $allHit ? 'hundido' : 'tocado';
+
+        // ¿Todos los barcos hundidos? 
+        $allCells = collect($ships)
+            ->pluck('cells')      // [[x,y],…],[[x,y],…],…
+            ->flatten(1)          // [ [x,y], [x,y], [x,y], … ]
+            ->all();
+        $gameOver = collect($allCells)->every(fn($c)=> in_array($c, $hits));
+
+        return [
+            'result'   => $result,
+            'cells'    => $allHit ? $hitShip : [],
+            'gameOver' => $gameOver,
+        ];
     }
+
+    /**
+     * La IA dispara a una casilla libre, usa processShot y devuelve
+     * [x,y,result,sunk,gameOver,cells].
+     */
+    protected function aiShot(BattleshipBoard $board): array
+    {
+        $hits = $board->hits ?? [];
+        do {
+            $x = rand(0,9);
+            $y = rand(0,9);
+        } while (collect($hits)->contains(fn($h)=> $h[0]===$x && $h[1]===$y));
+
+        $shot = $this->processShot($board, $x, $y);
+        return [
+            $x, $y,
+            $shot['result'],
+            ($shot['result']==='hundido'),
+            $shot['gameOver'],
+            $shot['cells']
+        ];
+    }
+
+
+    /** (Opcional) Para polling si no usamos WebSockets */
+    public function state(BattleshipGame $battleship_game)
+    {
+        // TODO: devolver JSON con hits/ships/turn/status
+    }
+
+    /** (Opcional) Ranking final */
+    public function leaderboard()
+    {
+        // TODO: view('games.battleship.leaderboard', compact('scores'));
+    }
+
+    // … aquí luego añadiremos métodos auxiliares como processShot(), aiShot(), checkGameOver(), generateRandomShips(), etc. …
 }
