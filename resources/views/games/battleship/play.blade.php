@@ -2,6 +2,18 @@
 @extends('layout')
 
 @section('content')
+
+<audio id="bg-music" src="{{ asset('audio/MusicaCombateBattleship.mp3') }}" loop preload="auto"></audio>
+<audio id="cannon-sound" src="{{ asset('audio/DisparCannon.mp3') }}" preload="auto"></audio>
+<audio id="impact-sound" src="{{ asset('audio/ImpactoBala.mp3') }}" preload="auto"></audio>
+<audio id="water-sound" src="{{ asset('audio/CaidaAlAgua.mp3') }}" preload="auto"></audio>
+<audio id="hundido-sound" src="{{ asset('audio/BarcoHundido.mp3') }}" preload="auto"></audio>
+
+  {{-- Toggle música --}}
+  <div class="absolute bottom-4 right-4">
+    <button id="music-toggle" class="px-3 py-1 bg-gray-700 text-white rounded">🔊</button>
+  </div>
+
 @php
   $hitsP  = $playerBoard->hits  ?? [];
   $shipsP = $playerBoard->ships ?? [];
@@ -73,6 +85,41 @@
 @push('scripts')
 <script>
 document.addEventListener('DOMContentLoaded', () => {
+  // Elementos de audio
+  const bgMusic      = document.getElementById('bg-music');
+  const cannonSound  = document.getElementById('cannon-sound');
+  const impactSound  = document.getElementById('impact-sound');
+  const waterSound   = document.getElementById('water-sound');
+  const hundidoSound = document.getElementById('hundido-sound');
+  const musicToggle  = document.getElementById('music-toggle');
+
+  // Estado de la música
+  let musicOn = true;
+
+  // Función para (re)arrancar la música
+  function tryPlayMusic() {
+    if (!musicOn) return;
+    bgMusic.volume = 0.3;
+    bgMusic.play().catch(()=>{ /* navegador bloqueó autoplay */ });
+  }
+
+  // Arranca al cargar
+  tryPlayMusic();
+  // Y también en cualquier gesto de clic (para reanudar tras refresh)
+  document.addEventListener('click', tryPlayMusic);
+
+  // Toggle on/off
+  musicToggle.addEventListener('click', () => {
+    if (musicOn) {
+      bgMusic.pause();
+      musicToggle.textContent = '🔇';
+    } else {
+      tryPlayMusic();
+      musicToggle.textContent = '🔊';
+    }
+    musicOn = !musicOn;
+  });
+
   const moveUrl       = "{{ route('battleship.move', $battleship_game) }}";
   const oppBoardEl    = document.getElementById('opponent-board');
   const playerBoardEl = document.getElementById('player-board');
@@ -89,9 +136,13 @@ document.addEventListener('DOMContentLoaded', () => {
     const cell = e.currentTarget;
     const x = +cell.dataset.x, y = +cell.dataset.y;
 
-    // Desactivar solo esta celda
+    // Play cannon shot
+    cannonSound.currentTime = 0;
+    cannonSound.volume = 0.8;
+    cannonSound.play();
+
+    // Disable this cell immediately
     cell.classList.remove('hover:bg-gray-600','cursor-pointer','cell-clickable');
-    // Bloquear tablero hasta respuesta
     oppBoardEl.style.pointerEvents = 'none';
     statusEl.textContent = '';
 
@@ -107,11 +158,15 @@ document.addEventListener('DOMContentLoaded', () => {
         body: JSON.stringify({ x,y })
       });
       const data = await res.json();
+
       if (!res.ok) {
         statusEl.textContent = `Error: ${data.message}`;
       } else {
-        // 1) Pintar hundidos completos
+        // Player result
         if (Array.isArray(data.sunkCells) && data.sunkCells.length) {
+          // Play sunk sound
+          hundidoSound.currentTime = 0;
+          hundidoSound.play();
           data.sunkCells.forEach(([sx,sy]) => {
             const c = oppBoardEl.querySelector(
               `[data-x="${sx}"][data-y="${sy}"]`
@@ -122,20 +177,24 @@ document.addEventListener('DOMContentLoaded', () => {
           statusEl.textContent = 'Tocado y hundido';
           statusEl.className = 'mt-6 text-center text-lg text-green-500';
         }
-        // 2) Pintar tocado simple
         else if (data.resultPlayer === 'tocado') {
+          // Play impact sound
+          impactSound.currentTime = 0;
+          impactSound.play();
           cell.classList.replace('bg-gray-700','bg-red-600');
           statusEl.textContent = 'Tocado';
           statusEl.className = 'mt-6 text-center text-lg text-red-600';
         }
-        // 3) Pintar agua
         else {
+          // Play water sound
+          waterSound.currentTime = 0;
+          waterSound.play();
           cell.classList.replace('bg-gray-700','bg-blue-400');
           statusEl.textContent = 'Agua';
           statusEl.className = 'mt-6 text-center text-lg text-blue-400';
         }
 
-        // 4) IA dispara
+        // AI shot
         if (data.coordsAI) {
           const [ax,ay] = data.coordsAI;
           const pe = playerBoardEl.querySelector(
@@ -148,7 +207,7 @@ document.addEventListener('DOMContentLoaded', () => {
           }
         }
 
-        // 5) Turno y fin
+        // Update turn & check end
         turnEl.textContent = data.turn.charAt(0).toUpperCase() + data.turn.slice(1);
         if (data.gameOver) {
           statusEl.textContent = data.winner==='player'
@@ -160,7 +219,7 @@ document.addEventListener('DOMContentLoaded', () => {
           enableClicks();
         }
       }
-    } catch(err) {
+    } catch (err) {
       console.error(err);
       statusEl.textContent = 'Error de red, inténtalo de nuevo.';
       oppBoardEl.style.pointerEvents = '';
