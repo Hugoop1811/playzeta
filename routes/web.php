@@ -10,6 +10,10 @@ use App\Http\Controllers\WordleTimeAttackController;
 use App\Http\Controllers\VolumeController;
 use Illuminate\Foundation\Auth\EmailVerificationRequest;
 use App\Http\Controllers\WordleTimeScoreController;
+<<<<<<< HEAD
+=======
+use App\Http\Controllers\VolumeController;
+>>>>>>> 9901467 (Añadido enlace al home en el boton del header, y modificaciones en el audio del battleship)
 
 /*
 |--------------------------------------------------------------------------
