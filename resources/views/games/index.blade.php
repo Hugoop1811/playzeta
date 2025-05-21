@@ -13,10 +13,11 @@
             <span class="text-sm text-zinc-200">Adivina la palabra del día</span>
         </a>
 
-        <div class="bg-zinc-800 p-6 rounded-xl shadow-md opacity-60 flex flex-col items-center text-center">
+        <a href="{{ route('battleship.index') }}"
+           class="bg-gradient-to-r from-indigo-500 to-purple-600 p-6 rounded-xl shadow-lg hover:scale-105 transition-transform duration-300 flex flex-col items-center text-center">
             <span class="text-2xl font-bold mb-2">Hundir la flota</span>
-            <span class="text-sm text-zinc-400">Próximamente</span>
-        </div>
+            <span class="text-sm text-zinc-200">Conviertete en el cápitan en esta batalla naval</span>
+        </a>
 
         <a href="{{ route('speedclick.index') }}"
    class="bg-gradient-to-r from-purple-600 to-indigo-600 p-6 rounded-xl shadow-lg hover:scale-105 transition-transform duration-300 flex flex-col items-center text-center">
