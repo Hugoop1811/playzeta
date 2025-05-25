@@ -14,6 +14,7 @@
             class="text-2xl font-bold text-purple-400 hover:text-purple-300 transition-colors">
             PlayZeta
         </a>
+
         <p class="text-sm text-gray-400">Juega. Compite. Disfruta.</p>
         <div class="absolute right-4 top-4">
             @auth

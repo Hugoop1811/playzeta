@@ -10,7 +10,8 @@ use App\Http\Controllers\WordleTimeAttackController;
 use Illuminate\Foundation\Auth\EmailVerificationRequest;
 use App\Http\Controllers\WordleTimeScoreController;
 use App\Http\Controllers\VolumeController;
-
+use Illuminate\Foundation\Auth\EmailVerificationRequest;
+use App\Http\Controllers\WordleTimeScoreController;
 
 /*
 |--------------------------------------------------------------------------
@@ -62,18 +63,18 @@ Route::get('/speedclick/challenge', [SpeedClickController::class, 'challenge'])-
 
 // Dashboard (usuarios logueados)
 Route::get('/dashboard', function () {
-     return view('dashboard');
+   return view('dashboard');
 })->middleware(['auth', 'verified'])->name('dashboard');
 
 
 Route::get('/email/verify', function () {
-     return view('auth.verify-email');
+    return view('auth.verify-email');
 })->middleware('auth')->name('verification.notice');
 
 Route::get('/email/verify/{id}/{hash}', function (EmailVerificationRequest $request) {
-     $request->fulfill();
+    $request->fulfill();
 
-     return redirect('/'); // <-- Aquí decides a dónde redirigir después del click del email
+    return redirect('/'); // <-- Aquí decides a dónde redirigir después del click del email
 })->middleware(['auth', 'signed'])->name('verification.verify');
 
 // Perfil de usuario

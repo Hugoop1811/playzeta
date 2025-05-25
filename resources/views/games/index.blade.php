@@ -31,8 +31,6 @@
                 <span class="text-2xl font-bold mb-2">Hundir la flota</span>
                 <span class="text-sm text-zinc-200">Clásico vs IA y PVP</span>
             </a>
-
-
         </div>
     </div>
 @endsection
