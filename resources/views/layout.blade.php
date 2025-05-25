@@ -14,7 +14,10 @@
             class="text-2xl font-bold text-purple-400 hover:text-purple-300 transition-colors">
             PlayZeta
         </a>
+<<<<<<< HEAD
 
+=======
+>>>>>>> 984179d (Añadido enlace al home en el boton del header, y modificaciones en el audio del battleship)
         <p class="text-sm text-gray-400">Juega. Compite. Disfruta.</p>
         <div class="absolute right-4 top-4">
             @auth

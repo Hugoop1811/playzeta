@@ -10,9 +10,6 @@ use App\Http\Controllers\WordleTimeAttackController;
 use Illuminate\Foundation\Auth\EmailVerificationRequest;
 use App\Http\Controllers\WordleTimeScoreController;
 use App\Http\Controllers\VolumeController;
-use Illuminate\Foundation\Auth\EmailVerificationRequest;
-use App\Http\Controllers\WordleTimeScoreController;
-
 /*
 |--------------------------------------------------------------------------
 | Web Routes - PlayZeta
