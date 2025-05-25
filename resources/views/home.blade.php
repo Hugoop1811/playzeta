@@ -7,12 +7,16 @@
 
     <div class="flex flex-col gap-4 w-full max-w-sm">
         <a href="{{ route('login') }}"
-           class="bg-gradient-to-r from-purple-600 to-pink-500 text-white py-3 px-6 rounded-xl font-semibold text-lg shadow-lg hover:scale-105 transition-transform duration-300 text-center">
-            Iniciar sesión / Registrarse
+           class="bg-gradient-to-r from-purple-600 to-indigo-500 text-white py-3 px-6 rounded-xl font-semibold text-lg shadow-lg hover:scale-105 transition-transform duration-300 text-center">
+            Iniciar sesión
+        </a>
+        <a href="{{ route('register') }}"
+           class="bg-gradient-to-r from-pink-500 to-red-500 text-white py-3 px-6 rounded-xl font-semibold text-lg shadow-lg hover:scale-105 transition-transform duration-300 text-center">
+            Registrarse
         </a>
         <a href="{{ route('games.index') }}"
            class="bg-zinc-800 border border-zinc-600 py-3 px-6 rounded-xl font-semibold text-lg text-white hover:bg-zinc-700 transition text-center">
-            Jugar como invitado
+            Jugar 
         </a>
     </div>
 

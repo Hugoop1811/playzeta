@@ -1,4 +1,4 @@
-@extends('layouts.app')
+@extends('layout')
 
 @section('content')
 <style>
@@ -52,10 +52,41 @@
     .letra-caja.animar {
         transform: scale(1.2);
     }
+
+    .range-slider {
+        -webkit-appearance: none;
+        width: 120px;
+        height: 6px;
+        background: #7c3aed;
+        border-radius: 5px;
+        outline: none;
+        transition: background 0.3s ease;
+    }
+
+    .range-slider::-webkit-slider-thumb {
+        -webkit-appearance: none;
+        appearance: none;
+        width: 16px;
+        height: 16px;
+        background: #fff;
+        border-radius: 50%;
+        cursor: pointer;
+        border: 2px solid #7c3aed;
+    }
+
+    .range-slider::-moz-range-thumb {
+        width: 16px;
+        height: 16px;
+        background: #fff;
+        border-radius: 50%;
+        cursor: pointer;
+        border: 2px solid #7c3aed;
+    }
+
 </style>
 
 <div class="container mx-auto text-white py-12 px-4">
-    <div class="flex flex-col md:flex-row justify-center items-start md:items-center gap-10">
+    <div class="flex flex-col md:flex-row justify-center items-start gap-10 relative">
 
         <!-- Letras usadas -->
         <div id="letter-tracker" class="grid grid-cols-4 md:grid-cols-3 gap-3 text-center">
@@ -87,18 +118,40 @@
             </a>
         </div>
 
-        <!-- Reloj circular -->
-        <div class="relative progress-circle">
-            <svg class="absolute top-0 left-0 w-full h-full" viewBox="0 0 36 36">
-                <path class="text-gray-700" stroke="currentColor" stroke-width="3" fill="none"
-                    d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
-                <path id="timer-progress" class="text-purple-500" stroke="currentColor" stroke-width="3"
-                    stroke-dasharray="100, 100" fill="none"
-                    d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
-            </svg>
-            <div class="absolute inset-0 flex items-center justify-center text-white text-2xl font-bold" id="timer">300</div>
+        <!-- Volumen + Cronómetro -->
+        <div class="flex flex-col items-center gap-3 absolute right-0 top-0 mt-2 mr-2 md:static">
+
+            <div class="flex items-center gap-3">
+                <input type="range" id="volumeControl" min="0" max="1" step="0.01" value="0.2" class="range-slider">
+                <button id="muteBtn" class="text-white text-xl">
+                    🔊
+                </button>
+            </div>
+
+            <div class="relative progress-circle mt-2">
+                <svg class="absolute top-0 left-0 w-full h-full" viewBox="0 0 36 36">
+                    <path class="text-gray-700" stroke="currentColor" stroke-width="3" fill="none"
+                          d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
+                    <path id="timer-progress" class="text-purple-500" stroke="currentColor" stroke-width="3"
+                          stroke-dasharray="100, 100" fill="none"
+                          d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
+                </svg>
+                <div class="absolute inset-0 flex items-center justify-center text-white text-2xl font-bold" id="timer">300</div>
+                
+            </div>
+            <!-- Enlaces debajo del temporizador -->
+<div class="flex flex-col items-center gap-2 mt-4">
+    <a href="{{ route('wordle.time.historial') }}" class="px-4 py-2 bg-indigo-700 hover:bg-indigo-600 text-white rounded shadow transition-all text-sm">
+        Ver mi historial
+    </a>
+    <a href="{{ route('wordle.time.leaderboard') }}" class="px-4 py-2 bg-purple-700 hover:bg-purple-600 text-white rounded shadow transition-all text-sm">
+        Ver leaderboard (Top 50)
+    </a>
+</div>
         </div>
+        
     </div>
+    
 
     <!-- Audios -->
     <audio id="bg-music" src="{{ asset('audio/suspense-pulse-tense-music-266060.mp3') }}" preload="auto" loop></audio>
@@ -117,6 +170,31 @@
     const letras = "ABCDEFGHIJKLMNÑOPQRSTUVWXYZ";
     const letraEstados = {};
     const bgMusic = document.getElementById('bg-music');
+
+    const volumeSlider = document.getElementById('volumeControl');
+    const muteBtn = document.getElementById('muteBtn');
+
+    volumeSlider.addEventListener('input', () => {
+        bgMusic.volume = parseFloat(volumeSlider.value);
+        if (bgMusic.volume === 0) {
+            muteBtn.textContent = '🔇';
+        } else {
+            muteBtn.textContent = '🔊';
+        }
+    });
+
+    muteBtn.addEventListener('click', () => {
+        if (bgMusic.volume > 0) {
+            volumeSlider.dataset.last = volumeSlider.value;
+            volumeSlider.value = 0;
+            bgMusic.volume = 0;
+            muteBtn.textContent = '🔇';
+        } else {
+            volumeSlider.value = volumeSlider.dataset.last || 0.2;
+            bgMusic.volume = parseFloat(volumeSlider.value);
+            muteBtn.textContent = '🔊';
+        }
+    });
 
     function renderEmptyBoard() {
         const board = document.getElementById('game-board');
@@ -149,31 +227,41 @@
             div.innerText = l;
             div.classList.add('letra-caja', 'text-white', 'uppercase', 'bg-gray-700', 'animar');
 
-            switch (letraEstados[l]) {
-                case 'green':
-                    div.classList.add('bg-green-600');
-                    break;
-                case 'yellow':
-                    div.classList.add('bg-yellow-400', 'text-black');
-                    break;
-                case 'gray':
-                    div.classList.add('bg-gray-600');
-                    break;
-            }
+           switch (letraEstados[l]) {
+    case 'green':
+        div.classList.add('bg-green-600');
+        break;
+    case 'yellow':
+        div.classList.add('bg-yellow-400', 'text-black');
+        break;
+    case 'gray':
+        div.classList.add('bg-gray-600');
+        break;
+    case 'red':
+        div.classList.add('bg-red-600');
+        break;
+}
+
 
             container.appendChild(div);
             setTimeout(() => div.classList.remove('animar'), 200);
         });
     }
 
-    async function fetchRandomWord() {
-        const res = await fetch('/api/wordle/random');
-        const data = await res.json();
-        word = data.word.toUpperCase();
-        renderEmptyBoard();
-        renderLetrasUsadas();
-        currentAttempt = 0;
-    }
+  async function fetchRandomWord() {
+    const res = await fetch('/api/wordle/random');
+    const data = await res.json();
+    word = data.word.toUpperCase();
+
+    letras.split('').forEach(l => {
+        letraEstados[l] = 'gray';
+    });
+
+    renderEmptyBoard();
+    renderLetrasUsadas();
+    currentAttempt = 0;
+}
+
 
     function paintAttempt(guess) {
         const row = document.getElementById('game-board').children[currentAttempt];
@@ -214,9 +302,10 @@
                     letraEstados[letra] = 'yellow';
                 }
                 letterCount[letra]--;
-            } else if (!targetLetters.includes(letra)) {
-                if (!letraEstados[letra]) letraEstados[letra] = 'gray';
-            }
+            }if (!targetLetters.includes(letra)) {
+    letraEstados[letra] = 'red';
+}
+
         }
 
         renderLetrasUsadas();
@@ -292,6 +381,8 @@
         document.getElementById('finalMessage').classList.remove('hidden');
         document.getElementById('guessInput').disabled = true;
         document.getElementById('guessBtn').disabled = true;
+        document.getElementById('startBtn').classList.remove('hidden');
+
         bgMusic.pause();
 
         fetch('/api/wordle/time-attack-score', {
@@ -305,7 +396,6 @@
     }
 
     document.getElementById('guessBtn').addEventListener('click', intentarPalabra);
-
     document.getElementById('guessInput').addEventListener('keydown', (e) => {
         if (e.key === 'Enter') intentarPalabra();
     });
@@ -324,6 +414,7 @@
         document.getElementById('guessInput').focus();
         document.getElementById('startBtn').classList.add('hidden');
         bgMusic.currentTime = 0;
+        bgMusic.volume = parseFloat(volumeSlider.value);
         bgMusic.play().catch(e => console.warn("Autoplay bloqueado"));
         fetchRandomWord();
 
