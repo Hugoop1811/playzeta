@@ -8,19 +8,23 @@ use Illuminate\Support\Str;
 use App\Models\BattleshipGame;
 use App\Models\BattleshipBoard;
 use App\Models\BattleshipMove;
+use Illuminate\Support\Facades\Auth;
 
 class BattleshipController extends Controller
 {
     /** 1. Muestra todas las partidas del usuario (o públicas) */
     public function index()
     {
-        // Traemos tanto partidas VS IA como PVP creadas por este usuario (incluso las que estén en setup)
-        $games = BattleshipGame::where('user_id', auth()->id())
-            ->orderBy('created_at', 'desc')
-            ->get();
+        if (Auth::check()) {
+            // Solo las partidas del usuario autenticado
+            $games = BattleshipGame::where('user_id', Auth::id())
+                                   ->orderBy('created_at','desc')
+                                   ->get();
+            return view('games.battleship.index', compact('games'));
+        }
 
-        // Se pasa a resources/views/games/battleship/index.blade.php
-        return view('games.battleship.index', compact('games'));
+        // Si no hay sesión, no le pasamos $games
+        return view('games.battleship.index');
     }
 
     /** 2. Formulario para elegir modo/dificultad */
@@ -69,7 +73,7 @@ class BattleshipController extends Controller
         //    - user_id: null si guest (IA sin login), o el ID si hay sesión
         //    - opponent_id permanece null hasta que alguien se una en PVP
         $game = BattleshipGame::create([
-            'user_id'      => auth()->id(),
+            'user_id'      => Auth::id(),
             'opponent_id'  => null,
             'mode'         => $data['mode'],
             'difficulty'   => $data['mode'] === 'IA' ? $data['difficulty'] : null,

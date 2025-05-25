@@ -18,7 +18,7 @@
         </button>
 
         <div id="player-board"
-             class="grid grid-rows-10 grid-cols-10 gap-[0.05rem] p-2">
+             class="grid grid-rows-10 grid-cols-10 gap-[0.06rem] p-2">
           @for($y = 0; $y < 10; $y++)
             @for($x = 0; $x < 10; $x++)
               <div
