@@ -25,10 +25,12 @@
             <span class="text-sm text-zinc-200">Pon a prueba tus reflejos</span>
         </a>
 
-        <div class="bg-zinc-800 p-6 rounded-xl shadow-md opacity-60 flex flex-col items-center text-center">
-            <span class="text-2xl font-bold mb-2">Hundir la flota</span>
-            <span class="text-sm text-zinc-400">Próximamente</span>
-        </div>
+      <a href="{{ route('battleship.index') }}"
+    class="bg-gradient-to-r from-blue-600 to-sky-500 p-6 rounded-xl shadow-lg hover:scale-105 transition-transform duration-300 flex flex-col items-center text-center">
+    <span class="text-2xl font-bold mb-2">Hundir la flota</span>
+    <span class="text-sm text-zinc-200">Clásico vs IA y PVP</span>
+        </a>
+
 
     </div>
 </div>
