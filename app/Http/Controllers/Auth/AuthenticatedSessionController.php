@@ -14,22 +14,28 @@ class AuthenticatedSessionController extends Controller
     /**
      * Display the login view.
      */
-    public function create(): View
-    {
-        return view('auth.login');
+   public function create(): View|\Illuminate\Http\RedirectResponse
+{
+    if (auth()->check()) {
+        return redirect('/games'); // o donde quieras que vaya si ya está logueado
     }
+
+    return view('auth.login');
+}
+
 
     /**
      * Handle an incoming authentication request.
      */
     public function store(LoginRequest $request): RedirectResponse
-    {
-        $request->authenticate();
+{
+    $request->authenticate();
 
-        $request->session()->regenerate();
+    $request->session()->regenerate();
 
-        return redirect()->intended(route('dashboard', absolute: false));
-    }
+    return redirect('/'); // Aquí puedes poner '/games' si prefieres
+}
+
 
     /**
      * Destroy an authenticated session.

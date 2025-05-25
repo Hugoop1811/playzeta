@@ -9,12 +9,12 @@ return new class extends Migration
     /**
      * Run the migrations.
      */
-   public function up()
+    public function up()
 {
-    Schema::create('scores', function (Blueprint $table) {
+    Schema::create('wordle_time_scores', function (Blueprint $table) {
         $table->id();
-        $table->foreignId('user_id')->constrained()->onDelete('cascade');
-        $table->integer('points');
+        $table->foreignId('user_id')->nullable()->constrained()->onDelete('cascade');
+        $table->integer('score');
         $table->timestamps();
     });
 }
@@ -25,6 +25,6 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::dropIfExists('scores');
+        Schema::dropIfExists('wordle_time_scores');
     }
 };

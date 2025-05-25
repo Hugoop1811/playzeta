@@ -13,23 +13,23 @@
             <span class="text-sm text-zinc-200">Adivina la palabra del día</span>
         </a>
 
+        <a href="{{ route('speedclick.challenge') }}"
+           class="bg-gradient-to-r from-pink-500 to-rose-600 p-6 rounded-xl shadow-lg hover:scale-105 transition-transform duration-300 flex flex-col items-center text-center">
+            <span class="text-2xl font-bold mb-2">Speed Click: Dianas</span>
+            <span class="text-sm text-zinc-200">Haz clic en todas las dianas</span>
+        </a>
+
+        <a href="{{ route('speedclick.index') }}"
+           class="bg-gradient-to-r from-purple-600 to-indigo-600 p-6 rounded-xl shadow-lg hover:scale-105 transition-transform duration-300 flex flex-col items-center text-center">
+            <span class="text-2xl font-bold mb-2">Speed Click: Velocidad</span>
+            <span class="text-sm text-zinc-200">Pon a prueba tus reflejos</span>
+        </a>
+
         <div class="bg-zinc-800 p-6 rounded-xl shadow-md opacity-60 flex flex-col items-center text-center">
             <span class="text-2xl font-bold mb-2">Hundir la flota</span>
             <span class="text-sm text-zinc-400">Próximamente</span>
         </div>
 
-        <a href="{{ route('speedclick.index') }}"
-   class="bg-gradient-to-r from-purple-600 to-indigo-600 p-6 rounded-xl shadow-lg hover:scale-105 transition-transform duration-300 flex flex-col items-center text-center">
-    <span class="text-2xl font-bold mb-2">Speed Click</span>
-    <span class="text-sm text-zinc-200">Pon a prueba tus reflejos</span>
-    </a>
-
-       
-
-        <div class="bg-zinc-800 p-6 rounded-xl shadow-md opacity-60 flex flex-col items-center text-center">
-            <span class="text-2xl font-bold mb-2">Cuatro en raya</span>
-            <span class="text-sm text-zinc-400">Próximamente</span>
-        </div>
     </div>
 </div>
 @endsection
