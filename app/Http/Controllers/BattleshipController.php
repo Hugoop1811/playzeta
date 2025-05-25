@@ -9,6 +9,8 @@ use App\Models\BattleshipGame;
 use App\Models\BattleshipBoard;
 use App\Models\BattleshipMove;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Log;
+
 
 class BattleshipController extends Controller
 {
@@ -18,8 +20,8 @@ class BattleshipController extends Controller
         if (Auth::check()) {
             // Solo las partidas del usuario autenticado
             $games = BattleshipGame::where('user_id', Auth::id())
-                                   ->orderBy('created_at','desc')
-                                   ->get();
+                ->orderBy('created_at', 'desc')
+                ->get();
             return view('games.battleship.index', compact('games'));
         }
 
@@ -193,37 +195,42 @@ class BattleshipController extends Controller
      */
     protected function generateRandomShips(): array
     {
-        $lengths = [5,4,3,3,2];
+        $lengths = [5, 4, 3, 3, 2];
         $placed  = [];
-        $grid    = array_fill(0,10, array_fill(0,10,false));
+        $grid    = array_fill(0, 10, array_fill(0, 10, false));
 
         foreach ($lengths as $size) {
             do {
-                $ori = rand(0,1) ? 'horizontal' : 'vertical';
-                $x   = rand(0, $ori==='horizontal' ? 10-$size : 9);
-                $y   = rand(0, $ori==='vertical'   ? 10-$size : 9);
-                $cells= [];
-                for ($i=0;$i<$size;$i++) {
-                    $xi = $ori==='horizontal' ? $x+$i : $x;
-                    $yi = $ori==='vertical'   ? $y+$i : $y;
-                    $cells[] = [$xi,$yi];
+                $ori = rand(0, 1) ? 'horizontal' : 'vertical';
+                $x   = rand(0, $ori === 'horizontal' ? 10 - $size : 9);
+                $y   = rand(0, $ori === 'vertical'   ? 10 - $size : 9);
+                $cells = [];
+                for ($i = 0; $i < $size; $i++) {
+                    $xi = $ori === 'horizontal' ? $x + $i : $x;
+                    $yi = $ori === 'vertical'   ? $y + $i : $y;
+                    $cells[] = [$xi, $yi];
                 }
                 // validar solapes y adyacencia ortogonal
                 $ok = true;
-                foreach ($cells as [$xi,$yi]) {
-                    if ($grid[$yi][$xi]) { $ok=false; break; }
-                    foreach ([[1,0],[-1,0],[0,1],[0,-1]] as [$dx,$dy]) {
-                        $nx=$xi+$dx; $ny=$yi+$dy;
-                        if ($nx>=0 && $nx<10 && $ny>=0 && $ny<10 && $grid[$ny][$nx]) {
-                            $ok=false; break 2;
+                foreach ($cells as [$xi, $yi]) {
+                    if ($grid[$yi][$xi]) {
+                        $ok = false;
+                        break;
+                    }
+                    foreach ([[1, 0], [-1, 0], [0, 1], [0, -1]] as [$dx, $dy]) {
+                        $nx = $xi + $dx;
+                        $ny = $yi + $dy;
+                        if ($nx >= 0 && $nx < 10 && $ny >= 0 && $ny < 10 && $grid[$ny][$nx]) {
+                            $ok = false;
+                            break 2;
                         }
                     }
                 }
             } while (! $ok);
-            foreach ($cells as [$xi,$yi]) {
+            foreach ($cells as [$xi, $yi]) {
                 $grid[$yi][$xi] = true;
             }
-            $placed[] = ['size'=>$size,'cells'=>$cells];
+            $placed[] = ['size' => $size, 'cells' => $cells];
         }
 
         return $placed;
@@ -266,14 +273,14 @@ class BattleshipController extends Controller
         ]);
 
         if ($battleship_game->status !== 'playing') {
-            return response()->json(['message'=>'La partida no está en curso.'], 422);
+            return response()->json(['message' => 'La partida no está en curso.'], 422);
         }
         if ($battleship_game->turn !== 'player') {
-            return response()->json(['message'=>'No es tu turno.'], 422);
+            return response()->json(['message' => 'No es tu turno.'], 422);
         }
 
-        $oppBoard    = $battleship_game->boards()->where('owner','opponent')->firstOrFail();
-        $playerBoard = $battleship_game->boards()->where('owner','player')->firstOrFail();
+        $oppBoard    = $battleship_game->boards()->where('owner', 'opponent')->firstOrFail();
+        $playerBoard = $battleship_game->boards()->where('owner', 'player')->firstOrFail();
 
         // 1) Disparo del jugador
         $shotP = $this->processShot($oppBoard, $data['x'], $data['y']);
@@ -290,7 +297,7 @@ class BattleshipController extends Controller
             $battleship_game->status = 'finished';
             $battleship_game->save();
             return response()->json([
-                'resultPlayer'=> $shotP['result'],
+                'resultPlayer' => $shotP['result'],
                 'sunkCells'   => $shotP['cells'],
                 'coordsAI'    => null,
                 'resultAI'    => null,
@@ -301,7 +308,7 @@ class BattleshipController extends Controller
         }
 
         // 2) Disparo de la IA
-        [$ax,$ay,$resAI,$sunkI,$overI,$cellsI] = $this->aiShot($playerBoard);
+        [$ax, $ay, $resAI, $sunkI, $overI, $cellsI] = $this->aiShot($playerBoard);
         BattleshipMove::create([
             'game_id' => $battleship_game->id,
             'shooter' => 'opponent',
@@ -315,9 +322,9 @@ class BattleshipController extends Controller
             $battleship_game->status = 'finished';
             $battleship_game->save();
             return response()->json([
-                'resultPlayer'=> $shotP['result'],
+                'resultPlayer' => $shotP['result'],
                 'sunkCells'   => $shotP['cells'],
-                'coordsAI'    => [$ax,$ay],
+                'coordsAI'    => [$ax, $ay],
                 'resultAI'    => $resAI,
                 'gameOver'    => true,
                 'winner'      => 'opponent',
@@ -330,9 +337,9 @@ class BattleshipController extends Controller
         $battleship_game->save();
 
         return response()->json([
-            'resultPlayer'=> $shotP['result'],
+            'resultPlayer' => $shotP['result'],
             'sunkCells'   => $shotP['cells'],
-            'coordsAI'    => [$ax,$ay],
+            'coordsAI'    => [$ax, $ay],
             'resultAI'    => $resAI,
             'gameOver'    => false,
             'winner'      => null,
@@ -350,29 +357,29 @@ class BattleshipController extends Controller
         $ships = $board->ships ?? [];
 
         // Evitar repetir disparo
-        if (collect($hits)->contains(fn($h)=> $h[0]===$x && $h[1]===$y)) {
-            return ['result'=>'agua','cells'=>[],'gameOver'=>false];
+        if (collect($hits)->contains(fn($h) => $h[0] === $x && $h[1] === $y)) {
+            return ['result' => 'agua', 'cells' => [], 'gameOver' => false];
         }
 
         // Anotar disparo
-        $hits[] = [$x,$y];
+        $hits[] = [$x, $y];
         $board->hits = $hits;
         $board->save();
 
         // ¿Ha tocado barco?
         $hitShip = null;
         foreach ($ships as $s) {
-            if (collect($s['cells'])->contains(fn($c)=> $c[0]===$x && $c[1]===$y)) {
+            if (collect($s['cells'])->contains(fn($c) => $c[0] === $x && $c[1] === $y)) {
                 $hitShip = $s['cells'];
                 break;
             }
         }
         if (! $hitShip) {
-            return ['result'=>'agua','cells'=>[],'gameOver'=>false];
+            return ['result' => 'agua', 'cells' => [], 'gameOver' => false];
         }
 
         // ¿Hundido el barco?
-        $allHit = collect($hitShip)->every(fn($c)=> in_array($c, $hits));
+        $allHit = collect($hitShip)->every(fn($c) => in_array($c, $hits));
         $result = $allHit ? 'hundido' : 'tocado';
 
         // ¿Todos los barcos hundidos? 
@@ -380,7 +387,7 @@ class BattleshipController extends Controller
             ->pluck('cells')      // [[x,y],…],[[x,y],…],…
             ->flatten(1)          // [ [x,y], [x,y], [x,y], … ]
             ->all();
-        $gameOver = collect($allCells)->every(fn($c)=> in_array($c, $hits));
+        $gameOver = collect($allCells)->every(fn($c) => in_array($c, $hits));
 
         return [
             'result'   => $result,
@@ -395,21 +402,128 @@ class BattleshipController extends Controller
      */
     protected function aiShot(BattleshipBoard $board): array
     {
-        $hits = $board->hits ?? [];
-        do {
-            $x = rand(0,9);
-            $y = rand(0,9);
-        } while (collect($hits)->contains(fn($h)=> $h[0]===$x && $h[1]===$y));
+        $difficulty = strtolower($board->game->difficulty ?? 'easy');
+        $hits       = $board->hits  ?? [];
+        $ships      = $board->ships ?? [];
 
+        // 1) Hunt & Target avanzado para medium/hard
+        if (in_array($difficulty, ['medium', 'hard'], true)) {
+            foreach ($ships as $ship) {
+                // 1.1) Extraer sólo las celdas tocadas
+                $hitCells = collect($ship['cells'])
+                    ->filter(fn($c) => in_array($c, $hits, true))
+                    ->values()
+                    ->all();
+
+                $hitCount = count($hitCells);
+                $total    = count($ship['cells']);
+
+                // Sólo si hay al menos 1 hit y no está hundido
+                if ($hitCount > 0 && $hitCount < $total) {
+                    $candidates = [];
+
+                    // 1.2) Si hay >=2 hits, detectamos orientación
+                    if ($hitCount >= 2) {
+                        $xs = array_column($hitCells, 0);
+                        $ys = array_column($hitCells, 1);
+
+                        // Vertical: mismos X
+                        if (count(array_unique($xs)) === 1) {
+                            $x0    = $xs[0];
+                            $minY  = min($ys);
+                            $maxY  = max($ys);
+                            // Propongo primero extremo superior, luego inferior
+                            $candidates[] = [$x0, $minY - 1];
+                            $candidates[] = [$x0, $maxY + 1];
+                        }
+                        // Horizontal: mismos Y
+                        elseif (count(array_unique($ys)) === 1) {
+                            $y0    = $ys[0];
+                            $minX  = min($xs);
+                            $maxX  = max($xs);
+                            $candidates[] = [$minX - 1, $y0];
+                            $candidates[] = [$maxX + 1, $y0];
+                        }
+
+                        // Filtrar fuera de rango y ya disparadas
+                        $candidates = array_filter(
+                            $candidates,
+                            fn($c) =>
+                            $c[0] >= 0 && $c[0] < 10 &&
+                                $c[1] >= 0 && $c[1] < 10 &&
+                                ! in_array($c, $hits, true)
+                        );
+                    }
+
+                    // 1.3) Si no obtuvimos candidato en línea, fallback ortogonal
+                    if (empty($candidates)) {
+                        foreach ($hitCells as [$cx, $cy]) {
+                            foreach ([[1, 0], [-1, 0], [0, 1], [0, -1]] as [$dx, $dy]) {
+                                $nx = $cx + $dx;
+                                $ny = $cy + $dy;
+                                if (
+                                    $nx >= 0 && $nx < 10 &&
+                                    $ny >= 0 && $ny < 10 &&
+                                    ! in_array([$nx, $ny], $hits, true)
+                                ) {
+                                    $candidates[] = [$nx, $ny];
+                                }
+                            }
+                        }
+                    }
+
+                    // 1.4) Eliminar duplicados
+                    $candidates = collect($candidates)->unique()->values()->all();
+
+                    if (!empty($candidates)) {
+                        [$x, $y] = $candidates[array_rand($candidates)];
+                        return $this->finalizeAiShot($board, $x, $y);
+                    }
+                    // Si aún sin candidatos, probamos siguiente barco
+                }
+            }
+        }
+
+        // 2) Disparo aleatorio (y paridad en hard)
+        $pool = [];
+        for ($i = 0; $i < 10; $i++) {
+            for ($j = 0; $j < 10; $j++) {
+                if (! in_array([$i, $j], $hits, true)) {
+                    if ($difficulty === 'hard') {
+                        if ((($i + $j) % 2) === 0) $pool[] = [$i, $j];
+                    } else {
+                        $pool[] = [$i, $j];
+                    }
+                }
+            }
+        }
+        if (empty($pool)) {
+            for ($i = 0; $i < 10; $i++) {
+                for ($j = 0; $j < 10; $j++) {
+                    if (! in_array([$i, $j], $hits, true)) {
+                        $pool[] = [$i, $j];
+                    }
+                }
+            }
+        }
+        [$x, $y] = $pool[array_rand($pool)];
+        return $this->finalizeAiShot($board, $x, $y);
+    }
+
+    protected function finalizeAiShot(BattleshipBoard $board, int $x, int $y): array
+    {
         $shot = $this->processShot($board, $x, $y);
         return [
-            $x, $y,
+            $x,
+            $y,
             $shot['result'],
-            ($shot['result']==='hundido'),
+            ($shot['result'] === 'hundido'),
             $shot['gameOver'],
-            $shot['cells']
+            $shot['cells'],
         ];
     }
+    // ... resto de la clase ...
+
 
 
     /** (Opcional) Para polling si no usamos WebSockets */
