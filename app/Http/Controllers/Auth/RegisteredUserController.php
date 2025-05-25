@@ -17,10 +17,15 @@ class RegisteredUserController extends Controller
     /**
      * Display the registration view.
      */
-    public function create(): View
-    {
-        return view('auth.register');
+   public function create(): View|\Illuminate\Http\RedirectResponse
+{
+    if (auth()->check()) {
+        return redirect('/games');
     }
+
+    return view('auth.register');
+}
+
 
     /**
      * Handle an incoming registration request.
@@ -45,6 +50,7 @@ class RegisteredUserController extends Controller
 
         Auth::login($user);
 
-        return redirect(route('dashboard', absolute: false));
+       return redirect('/');
+
     }
 }

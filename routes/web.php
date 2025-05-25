@@ -8,7 +8,8 @@ use App\Models\BattleshipGame;
 use App\Http\Controllers\SpeedClickController;
 use App\Http\Controllers\WordleTimeAttackController;
 use App\Http\Controllers\VolumeController;
-
+use Illuminate\Foundation\Auth\EmailVerificationRequest;
+use App\Http\Controllers\WordleTimeScoreController;
 
 /*
 |--------------------------------------------------------------------------
@@ -42,10 +43,13 @@ Route::get('/wordle/nn-ready', function () {
 Route::get('/wordle/contrarreloj', [WordleController::class, 'timeAttack'])->name('wordle.time');
 Route::post('/wordle/contrarreloj/check', [WordleController::class, 'checkTimeMode'])->name('wordle.time.check');
 Route::post('/wordle/contrarreloj/guardar', [WordleController::class, 'saveTimeScore'])->name('wordle.time.save');
+Route::get('/wordle/contrarreloj/historial', [WordleTimeScoreController::class, 'historial'])->name('wordle.time.historial');
+Route::get('/wordle/contrarreloj/leaderboard', [WordleTimeScoreController::class, 'leaderboard'])
+     ->name('wordle.time.leaderboard');
 
 Route::get('/api/wordle/random', [WordleController::class, 'getRandomWord']);
 Route::post('/api/wordle/time-attack-score', [WordleController::class, 'saveTimeAttackScore'])->middleware('auth');
-
+Route::post('/api/wordle/time-attack-score', [WordleTimeScoreController::class, 'store'])->middleware('auth');
 
 
 
@@ -57,8 +61,19 @@ Route::get('/speedclick/challenge', [SpeedClickController::class, 'challenge'])-
 
 // Dashboard (usuarios logueados)
 Route::get('/dashboard', function () {
-     return view('dashboard');
+   return view('dashboard');
 })->middleware(['auth', 'verified'])->name('dashboard');
+
+
+Route::get('/email/verify', function () {
+    return view('auth.verify-email');
+})->middleware('auth')->name('verification.notice');
+
+Route::get('/email/verify/{id}/{hash}', function (EmailVerificationRequest $request) {
+    $request->fulfill();
+
+    return redirect('/'); // <-- Aquí decides a dónde redirigir después del click del email
+})->middleware(['auth', 'signed'])->name('verification.verify');
 
 // Perfil de usuario
 Route::middleware('auth')->group(function () {
