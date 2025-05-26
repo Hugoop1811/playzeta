@@ -267,10 +267,8 @@ class BattleshipController extends Controller
     /** 4.2. Procesa un disparo; retorna JSON con resultados y estado */
     public function move(Request $request, BattleshipGame $battleship_game)
     {
-        $data = $request->validate([
-            'x' => 'required|integer|min:0|max:9',
-            'y' => 'required|integer|min:0|max:9',
-        ]);
+        // Si viene { skip: true } saltamos el disparo del jugador
+        $skip = $request->boolean('skip', false);
 
         if ($battleship_game->status !== 'playing') {
             return response()->json(['message' => 'La partida no está en curso.'], 422);
@@ -282,32 +280,39 @@ class BattleshipController extends Controller
         $oppBoard    = $battleship_game->boards()->where('owner', 'opponent')->firstOrFail();
         $playerBoard = $battleship_game->boards()->where('owner', 'player')->firstOrFail();
 
-        // 1) Disparo del jugador
-        $shotP = $this->processShot($oppBoard, $data['x'], $data['y']);
-        BattleshipMove::create([
-            'game_id' => $battleship_game->id,
-            'shooter' => 'player',
-            'x'       => $data['x'],
-            'y'       => $data['y'],
-            'result'  => $shotP['result'],
-        ]);
-
-        // Si el jugador hunde todo — fin inmediato
-        if ($shotP['gameOver']) {
-            $battleship_game->status = 'finished';
-            $battleship_game->save();
-            return response()->json([
-                'resultPlayer' => $shotP['result'],
-                'sunkCells'   => $shotP['cells'],
-                'coordsAI'    => null,
-                'resultAI'    => null,
-                'gameOver'    => true,
-                'winner'      => 'player',
-                'turn'        => 'player',
+        // 1) Disparo del jugador (solo si no es skip)
+        if (! $skip) {
+            $data = $request->validate([
+                'x' => 'required|integer|min:0|max:9',
+                'y' => 'required|integer|min:0|max:9',
             ]);
+
+            $shotP = $this->processShot($oppBoard, $data['x'], $data['y']);
+            BattleshipMove::create([
+                'game_id' => $battleship_game->id,
+                'shooter' => 'player',
+                'x'       => $data['x'],
+                'y'       => $data['y'],
+                'result'  => $shotP['result'],
+            ]);
+
+            // Si el jugador hunde todo, fin inmediato
+            if ($shotP['gameOver']) {
+                $battleship_game->status = 'finished';
+                $battleship_game->save();
+                return response()->json([
+                    'resultPlayer' => $shotP['result'],
+                    'sunkCells'   => $shotP['cells'],
+                    'coordsAI'    => null,
+                    'resultAI'    => null,
+                    'gameOver'    => true,
+                    'winner'      => 'player',
+                    'turn'        => 'player',
+                ]);
+            }
         }
 
-        // 2) Disparo de la IA
+        // 2) Disparo de la IA (siempre)
         [$ax, $ay, $resAI, $sunkI, $overI, $cellsI] = $this->aiShot($playerBoard);
         BattleshipMove::create([
             'game_id' => $battleship_game->id,
@@ -322,8 +327,9 @@ class BattleshipController extends Controller
             $battleship_game->status = 'finished';
             $battleship_game->save();
             return response()->json([
-                'resultPlayer' => $shotP['result'],
-                'sunkCells'   => $shotP['cells'],
+                // en skip, resultPlayer=null
+                'resultPlayer' => $skip ? null : ($shotP['result'] ?? null),
+                'sunkCells'   => $skip ? []   : ($shotP['cells']  ?? []),
                 'coordsAI'    => [$ax, $ay],
                 'resultAI'    => $resAI,
                 'gameOver'    => true,
@@ -332,13 +338,13 @@ class BattleshipController extends Controller
             ]);
         }
 
-        // 3) Continuar partida
+        // 3) Partida sigue
         $battleship_game->turn = 'player';
         $battleship_game->save();
 
         return response()->json([
-            'resultPlayer' => $shotP['result'],
-            'sunkCells'   => $shotP['cells'],
+            'resultPlayer' => $skip ? null : ($shotP['result'] ?? null),
+            'sunkCells'   => $skip ? []   : ($shotP['cells']  ?? []),
             'coordsAI'    => [$ax, $ay],
             'resultAI'    => $resAI,
             'gameOver'    => false,
