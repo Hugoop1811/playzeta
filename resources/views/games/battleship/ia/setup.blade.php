@@ -77,7 +77,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const rotateBtn  = document.getElementById('rotate-btn');
   const startBtn   = document.getElementById('start-game');
   const statusEl   = document.getElementById('status');
-  const setupUrl   = "{{ route('battleship.setup', ['battleship_game'=>$battleship_game->id]) }}";
+  const setupUrl   = "{{ route('battleship.ia.setup', ['battleship_game'=>$battleship_game->id]) }}";
 
   // Sólo horizontal/vertical
   let orientation = 'horizontal';
@@ -235,7 +235,7 @@ document.addEventListener('DOMContentLoaded', () => {
       }
       const json = await res.json();
       if (json.start) {
-        window.location.href = "{{ route('battleship.play',['battleship_game'=>$battleship_game->id]) }}";
+        window.location.href = "{{ route('battleship.ia.play',['battleship_game'=>$battleship_game->id]) }}";
       } else {
         statusEl.textContent = 'Esperando a que el rival coloque sus barcos…';
       }

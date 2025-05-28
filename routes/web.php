@@ -10,6 +10,8 @@ use App\Http\Controllers\WordleTimeAttackController;
 use Illuminate\Foundation\Auth\EmailVerificationRequest;
 use App\Http\Controllers\WordleTimeScoreController;
 use App\Http\Controllers\VolumeController;
+use App\Http\Controllers\Battleship\AiBattleshipController;
+use App\Http\Controllers\Battleship\PvpBattleshipController;
 /*
 |--------------------------------------------------------------------------
 | Web Routes - PlayZeta
@@ -60,18 +62,18 @@ Route::get('/speedclick/challenge', [SpeedClickController::class, 'challenge'])-
 
 // Dashboard (usuarios logueados)
 Route::get('/dashboard', function () {
-   return view('dashboard');
+     return view('dashboard');
 })->middleware(['auth', 'verified'])->name('dashboard');
 
 
 Route::get('/email/verify', function () {
-    return view('auth.verify-email');
+     return view('auth.verify-email');
 })->middleware('auth')->name('verification.notice');
 
 Route::get('/email/verify/{id}/{hash}', function (EmailVerificationRequest $request) {
-    $request->fulfill();
+     $request->fulfill();
 
-    return redirect('/'); // <-- Aquí decides a dónde redirigir después del click del email
+     return redirect('/'); // <-- Aquí decides a dónde redirigir después del click del email
 })->middleware(['auth', 'signed'])->name('verification.verify');
 
 // Perfil de usuario
@@ -83,42 +85,41 @@ Route::middleware('auth')->group(function () {
 
 // Battleship (Clásico vs IA y PVP)
 Route::prefix('battleship')->name('battleship.')->group(function () {
-     // 1. Listado de partidas (opcional)
-     Route::get('/', [BattleshipController::class, 'index'])
-          ->name('index');
+    // 1) INDEX
+    Route::get('/', [BattleshipController::class,'index'])->name('index');
 
-     // 2. Crear nueva partida
-     Route::get('create', [BattleshipController::class, 'create'])
-          ->name('create');
-     Route::post('/', [BattleshipController::class, 'store'])
-          ->name('store');
+    // 2) CREATE / STORE (genérico)
+    Route::get('create', [BattleshipController::class,'create'])->name('create');
+    Route::post('/',      [BattleshipController::class,'store'])->name('store');
 
-     // 3. Setup de barcos
-     Route::get('{battleship_game}/setup', [BattleshipController::class, 'showSetup'])
-          ->whereNumber('battleship_game')
-          ->name('setup.view');
-     Route::post('{battleship_game}/setup', [BattleshipController::class, 'setup'])
-          ->whereNumber('battleship_game')
-          ->name('setup');
+    // ——— IA ———
+    Route::get('ia/{battleship_game}/setup', [AiBattleshipController::class,'showSetup'])
+         ->name('ia.setup.view');
+    Route::post('ia/{battleship_game}/setup',[AiBattleshipController::class,'setup'])
+         ->name('ia.setup');
+    Route::get('ia/{battleship_game}/play',  [AiBattleshipController::class,'showPlay'])
+         ->name('ia.play');
+    Route::post('ia/{battleship_game}/move', [AiBattleshipController::class,'move'])
+         ->name('ia.move');
 
-     // 4. Juego activo
-     Route::get('{battleship_game}/play', [BattleshipController::class, 'showPlay'])
-          ->whereNumber('battleship_game')
-          ->name('play');
-     Route::post('{battleship_game}/move', [BattleshipController::class, 'move'])
-          ->whereNumber('battleship_game')
-          ->name('move');
-     Route::get('{battleship_game}/state', [BattleshipController::class, 'state'])
-          ->whereNumber('battleship_game')
-          ->name('state');
+    // ——— PVP ———
+    Route::prefix('pvp')->middleware('auth')->name('pvp.')->group(function(){
+      Route::get('{battleship_game}/lobby', [PvpBattleshipController::class,'lobby'])
+             ->name('lobby');
+      Route::get('{battleship_game}/join',  [PvpBattleshipController::class,'join'])
+             ->name('join');
+      Route::get('{battleship_game}/setup',  [PvpBattleshipController::class,'showSetup'])
+           ->name('setup.view');
+      Route::post('{battleship_game}/setup', [PvpBattleshipController::class,'setup'])
+           ->name('setup');
+      Route::get('{battleship_game}/play',   [PvpBattleshipController::class,'showPlay'])
+           ->name('play');
+      Route::post('{battleship_game}/move',  [PvpBattleshipController::class,'move'])
+           ->name('move');
+    });
 
-     // 5. Leaderboard (opcional)
-     Route::get('leaderboard', [BattleshipController::class, 'leaderboard'])
-          ->name('leaderboard'); // …
-
-     // Debe ir dentro del grupo de rutas que requieren web/session:
-     Route::post('volume', [VolumeController::class, 'update'])
-          ->name('volume');
+    // LEADERBOARD
+    Route::get('leaderboard',[BattleshipController::class,'leaderboard'])
+         ->name('leaderboard');
 });
-
 require __DIR__ . '/auth.php';

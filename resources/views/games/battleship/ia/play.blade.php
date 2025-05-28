@@ -102,7 +102,7 @@
 <script>
 document.addEventListener('DOMContentLoaded', () => {
   // URLs y configuración
-  const moveUrl    = "{{ route('battleship.move', $battleship_game) }}";
+  const moveUrl    = "{{ route('battleship.ia.move', $battleship_game) }}";
   const difficulty = "{{ strtolower($battleship_game->difficulty) }}";
   const oppShips   = @json($oppBoard->ships ?? []);
 
