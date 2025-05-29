@@ -12,12 +12,15 @@ use App\Http\Controllers\WordleTimeScoreController;
 use App\Http\Controllers\VolumeController;
 use App\Http\Controllers\Battleship\AiBattleshipController;
 use App\Http\Controllers\Battleship\PvpBattleshipController;
+use Illuminate\Support\Facades\Broadcast;
+
 /*
 |--------------------------------------------------------------------------
 | Web Routes - PlayZeta
 |--------------------------------------------------------------------------
 */
 
+Broadcast::routes();
 // Página principal
 Route::get('/', function () {
      return view('home');
@@ -85,41 +88,46 @@ Route::middleware('auth')->group(function () {
 
 // Battleship (Clásico vs IA y PVP)
 Route::prefix('battleship')->name('battleship.')->group(function () {
-    // 1) INDEX
-    Route::get('/', [BattleshipController::class,'index'])->name('index');
+     // 1) INDEX
+     Route::get('/', [BattleshipController::class, 'index'])->name('index');
 
-    // 2) CREATE / STORE (genérico)
-    Route::get('create', [BattleshipController::class,'create'])->name('create');
-    Route::post('/',      [BattleshipController::class,'store'])->name('store');
+     // 2) CREATE / STORE (genérico)
+     Route::get('create', [BattleshipController::class, 'create'])->name('create');
+     Route::post('/',      [BattleshipController::class, 'store'])->name('store');
 
-    // ——— IA ———
-    Route::get('ia/{battleship_game}/setup', [AiBattleshipController::class,'showSetup'])
-         ->name('ia.setup.view');
-    Route::post('ia/{battleship_game}/setup',[AiBattleshipController::class,'setup'])
-         ->name('ia.setup');
-    Route::get('ia/{battleship_game}/play',  [AiBattleshipController::class,'showPlay'])
-         ->name('ia.play');
-    Route::post('ia/{battleship_game}/move', [AiBattleshipController::class,'move'])
-         ->name('ia.move');
+     // ——— IA ———
+     Route::get('ia/{battleship_game}/setup', [AiBattleshipController::class, 'showSetup'])
+          ->name('ia.setup.view');
+     Route::post('ia/{battleship_game}/setup', [AiBattleshipController::class, 'setup'])
+          ->name('ia.setup');
+     Route::get('ia/{battleship_game}/play',  [AiBattleshipController::class, 'showPlay'])
+          ->name('ia.play');
+     Route::post('ia/{battleship_game}/move', [AiBattleshipController::class, 'move'])
+          ->name('ia.move');
 
-    // ——— PVP ———
-    Route::prefix('pvp')->middleware('auth')->name('pvp.')->group(function(){
-      Route::get('{battleship_game}/lobby', [PvpBattleshipController::class,'lobby'])
-             ->name('lobby');
-      Route::get('{battleship_game}/join',  [PvpBattleshipController::class,'join'])
-             ->name('join');
-      Route::get('{battleship_game}/setup',  [PvpBattleshipController::class,'showSetup'])
-           ->name('setup.view');
-      Route::post('{battleship_game}/setup', [PvpBattleshipController::class,'setup'])
-           ->name('setup');
-      Route::get('{battleship_game}/play',   [PvpBattleshipController::class,'showPlay'])
-           ->name('play');
-      Route::post('{battleship_game}/move',  [PvpBattleshipController::class,'move'])
-           ->name('move');
-    });
+     // ——— PVP ———
+     Route::prefix('pvp')->middleware('auth')->name('pvp.')->group(function () {
+          Route::get('{battleship_game}/lobby', [PvpBattleshipController::class, 'lobby'])
+               ->name('lobby');
+          Route::get('{battleship_game}/join',  [PvpBattleshipController::class, 'join'])
+               ->name('join');
+          Route::get('{battleship_game}/setup',  [PvpBattleshipController::class, 'showSetup'])
+               ->name('setup.view');
+          Route::post('{battleship_game}/setup', [PvpBattleshipController::class, 'setup'])
+               ->name('setup');
+          Route::get('{battleship_game}/play',   [PvpBattleshipController::class, 'showPlay'])
+               ->name('play');
+          Route::post('{battleship_game}/move',  [PvpBattleshipController::class, 'move'])
+               ->name('move');
+     });
 
-    // LEADERBOARD
-    Route::get('leaderboard',[BattleshipController::class,'leaderboard'])
-         ->name('leaderboard');
+     // LEADERBOARD
+     Route::get('leaderboard', [BattleshipController::class, 'leaderboard'])
+          ->name('leaderboard');
 });
+
+Route::get('/test-pusher', function () {
+     return view('test-pusher');
+})->middleware('auth');
+
 require __DIR__ . '/auth.php';

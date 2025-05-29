@@ -4,14 +4,16 @@ namespace App\Events;
 
 use Illuminate\Broadcasting\PrivateChannel;
 use Illuminate\Contracts\Broadcasting\ShouldBroadcast;
+use Illuminate\Queue\SerializesModels;
 use Illuminate\Foundation\Events\Dispatchable;
+use Illuminate\Broadcasting\InteractsWithSockets;
 
 class GameOver implements ShouldBroadcast
 {
-    use Dispatchable;
+    use Dispatchable, InteractsWithSockets, SerializesModels;
 
-    public int    $gameId;
-    public string $winner;   // 'player' o 'opponent'
+    public $gameId;
+    public $winner;
 
     public function __construct(int $gameId, string $winner)
     {
@@ -19,16 +21,13 @@ class GameOver implements ShouldBroadcast
         $this->winner = $winner;
     }
 
-    public function broadcastOn(): PrivateChannel
+    public function broadcastOn()
     {
-        return new PrivateChannel("battleship.pvp.{$this->gameId}");
+        return new PrivateChannel('battleship.' . $this->gameId);
     }
 
-    public function broadcastWith(): array
+    public function broadcastAs()
     {
-        return [
-            'gameId' => $this->gameId,
-            'winner' => $this->winner,
-        ];
+        return 'GameOver';
     }
 }

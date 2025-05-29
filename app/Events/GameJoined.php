@@ -2,21 +2,33 @@
 
 namespace App\Events;
 
-use Illuminate\Broadcasting\PrivateChannel;
-use Illuminate\Contracts\Broadcasting\ShouldBroadcastNow;
 use App\Models\BattleshipGame;
+use Illuminate\Broadcasting\PrivateChannel;
+use Illuminate\Contracts\Broadcasting\ShouldBroadcast;
+use Illuminate\Queue\SerializesModels;
+use Illuminate\Foundation\Events\Dispatchable;
+use Illuminate\Broadcasting\InteractsWithSockets;
 
-class GameJoined implements ShouldBroadcastNow
+class GameJoined implements ShouldBroadcast
 {
-    public function __construct(public BattleshipGame $game) {}
+    use Dispatchable, InteractsWithSockets, SerializesModels;
+
+    public $gameId;
+    public $opponentId;
+
+    public function __construct(BattleshipGame $game)
+    {
+        $this->gameId = $game->id;
+        $this->opponentId = $game->opponent_id;
+    }
 
     public function broadcastOn()
     {
-        return new PrivateChannel("battleship.pvp.{$this->game->id}");
+        return new PrivateChannel('battleship.' . $this->gameId);
     }
 
-    public function broadcastWith()
+    public function broadcastAs()
     {
-        return ['gameId'=>$this->game->id];
+        return 'GameJoined';
     }
 }

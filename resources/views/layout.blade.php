@@ -5,6 +5,7 @@
     <meta charset="UTF-8">
     <title>PlayZeta</title>
     @vite(['resources/css/app.css', 'resources/js/app.js'])
+    <meta name="csrf-token" content="{{ csrf_token() }}">
 </head>
 
 <body class="bg-gray-900 text-white min-h-screen flex flex-col">

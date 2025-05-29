@@ -79,21 +79,25 @@ class PvpBattleshipController extends Controller
         ]);
 
         $owner = $this->isCreator($battleship_game) ? 'player' : 'opponent';
+
         $board = $battleship_game->boards()
             ->where('owner', $owner)
             ->firstOrFail();
 
         $this->engine->placeShips($board, $data['ships']);
 
-        event(new ShipsPlaced($battleship_game));
+        // 🔁 Emitimos evento para que el rival lo escuche
+        event(new ShipsPlaced($battleship_game->id, Auth::id()));
 
-        // Si el rival ya colocó:
-        $oppBoard = $battleship_game->boards()->where('owner', 'opponent')->first();
-        $otherReady = ! empty($oppBoard->ships);
+        // 🧠 Revisamos si el otro ya está listo
+        $opposite = $owner === 'player' ? 'opponent' : 'player';
+        $oppBoard = $battleship_game->boards()->where('owner', $opposite)->first();
+        $otherReady = !empty($oppBoard->ships);
 
         if ($otherReady) {
             $battleship_game->status = 'playing';
             $battleship_game->save();
+
             return response()->json(['ok' => true, 'start' => true]);
         }
 

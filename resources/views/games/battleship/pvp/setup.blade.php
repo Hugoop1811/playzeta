@@ -1,25 +1,24 @@
-{{-- resources/views/games/battleship/pvp/setup.blade.php --}}
 @extends('layout')
 
 @section('content')
-<div class="grid justify-center mx-auto p-6 min-h-screen">
+<div class="grid justify-center mx-auto p-6">
   <div class="bg-gray-900 p-6">
-    <h1 class="text-2xl font-bold mb-4 text-white">Coloca tus barcos (Multijugador)</h1>
+    <h1 class="text-2xl font-bold mb-4 text-white">Coloca tus barcos</h1>
     <p class="mb-6 text-gray-300">
-      Arrastra tus barcos al tablero de 10×10. Cuando ambos jugadores hayan colocado los suyos, la partida comenzará automáticamente.
+      Arrastra los barcos al tablero de 10×10. Cuando termines, haz clic en “¡A jugar!”. La partida empezará cuando ambos estén listos.
     </p>
 
     <div class="flex space-x-8">
-      {{-- Tablero del jugador --}}
       <div>
         <button id="rotate-btn"
                 class="mb-4 px-3 py-1 bg-blue-600 text-white rounded">
           Orientación: Horizontal
         </button>
+
         <div id="player-board"
-             class="grid grid-rows-10 grid-cols-10 gap-[0.05rem] p-2">
-          @for($y=0; $y<10; $y++)
-            @for($x=0; $x<10; $x++)
+             class="grid grid-rows-10 grid-cols-10 gap-[0.06rem] p-2">
+          @for($y = 0; $y < 10; $y++)
+            @for($x = 0; $x < 10; $x++)
               <div
                 class="battleship-cell w-10 h-10 bg-blue-700 border border-blue-700"
                 data-x="{{ $x }}" data-y="{{ $y }}"
@@ -27,10 +26,10 @@
             @endfor
           @endfor
         </div>
+
         <div id="status" class="mt-3 text-lg text-yellow-400"></div>
       </div>
 
-      {{-- Paleta de barcos --}}
       <div class="space-y-4">
         @php
           $ships = [
@@ -43,18 +42,22 @@
         @endphp
 
         @foreach($ships as $ship)
-          <div draggable="true"
-               data-id="{{ $ship['id'] }}"
-               data-size="{{ $ship['size'] }}"
-               data-color="{{ $ship['color'] }}"
-               class="ship {{ $ship['color'] }} text-white px-4 py-2 rounded cursor-grab hover:opacity-90">
+          <div
+            draggable="true"
+            data-id="{{ $ship['id'] }}"
+            data-size="{{ $ship['size'] }}"
+            data-color="{{ $ship['color'] }}"
+            class="ship {{ $ship['color'] }} text-white px-4 py-2 rounded cursor-grab hover:opacity-90"
+          >
             {{ $ship['label'] }} ({{ $ship['size'] }})
           </div>
         @endforeach
 
-        <button id="start-game"
-                class="mt-6 w-full px-4 py-2 bg-green-600 text-white font-semibold rounded disabled:opacity-50"
-                disabled>
+        <button
+          id="start-game"
+          class="mt-6 w-full px-4 py-2 bg-green-600 text-white font-semibold rounded disabled:opacity-50"
+          disabled
+        >
           ¡A jugar!
         </button>
       </div>
@@ -64,38 +67,30 @@
 @endsection
 
 @push('scripts')
+<script src="https://js.pusher.com/7.2/pusher.min.js"></script>
 <script>
 document.addEventListener('DOMContentLoaded', () => {
-  const gameId   = {{ $battleship_game->id }};
+  const gameId = {{ $battleship_game->id }};
+  const userId = {{ auth()->id() }};
   const setupUrl = "{{ route('battleship.pvp.setup', $battleship_game) }}";
-  const channel  = Echo.private(`battleship.pvp.${gameId}`);
-  const statusEl = document.getElementById('status');
+  const playUrl  = "{{ route('battleship.pvp.play', $battleship_game) }}";
 
   const boardEl   = document.getElementById('player-board');
   const rotateBtn = document.getElementById('rotate-btn');
   const shipEls   = Array.from(document.querySelectorAll('.ship'));
   const startBtn  = document.getElementById('start-game');
+  const statusEl  = document.getElementById('status');
 
-  let orientation   = 'horizontal';
-  let currentShip   = null;
-  let previewCells  = [];
+  let orientation = 'horizontal';
+  let currentShip = null;
+  let previewCells = [];
   const placedShips = [];
 
-  // Escucha cuando el rival coloca sus barcos
-  channel.listen('ShipsPlaced', e => {
-    // Si yo ya coloqué y viene del otro jugador, arrancamos
-    if (placedShips.length === shipEls.length && e.playerId !== {{ auth()->id() }}) {
-      window.location.href = "{{ route('battleship.pvp.play', $battleship_game) }}";
-    }
-  });
-
-  // Alternar orientación de colocación
   rotateBtn.addEventListener('click', () => {
     orientation = orientation === 'horizontal' ? 'vertical' : 'horizontal';
     rotateBtn.textContent = 'Orientación: ' + (orientation === 'horizontal' ? 'Horizontal' : 'Vertical');
   });
 
-  // Preparar dragstart para cada barco
   shipEls.forEach(el => {
     el.addEventListener('dragstart', () => {
       currentShip = {
@@ -107,16 +102,27 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   });
 
-  // Función para limpiar preview
   function clearPreview() {
     previewCells.forEach(c => {
-      c.classList.remove(currentShip?.color);
+      c.classList.remove('bg-blue-900');
       c.classList.add('bg-blue-700');
     });
     previewCells = [];
   }
 
-  // Dragover, dragleave y drop en celdas
+  function isBlocked(x, y) {
+    const cell = boardEl.querySelector(`[data-x="${x}"][data-y="${y}"]`);
+    if (cell.dataset.occupiedBy) return true;
+    const dirs = [[1,0],[-1,0],[0,1],[0,-1]];
+    for (let [dx,dy] of dirs) {
+      const nx=x+dx, ny=y+dy;
+      if (nx<0||nx>9||ny<0||ny>9) continue;
+      const ncell = boardEl.querySelector(`[data-x="${nx}"][data-y="${ny}"]`);
+      if (ncell.dataset.occupiedBy) return true;
+    }
+    return false;
+  }
+
   boardEl.querySelectorAll('.battleship-cell').forEach(cell => {
     cell.addEventListener('dragover', e => {
       e.preventDefault();
@@ -126,16 +132,14 @@ document.addEventListener('DOMContentLoaded', () => {
       const x = +cell.dataset.x, y = +cell.dataset.y;
       const cells = [];
       for (let i = 0; i < currentShip.size; i++) {
-        const xi = orientation === 'horizontal' ? x + i : x;
-        const yi = orientation === 'vertical'   ? y + i : y;
-        if (xi > 9 || yi > 9) { clearPreview(); return; }
-        const c = boardEl.querySelector(`.battleship-cell[data-x="${xi}"][data-y="${yi}"]`);
-        if (c.dataset.occupiedBy) { clearPreview(); return; }
-        cells.push(c);
+        const xi = orientation==='horizontal'? x+i : x;
+        const yi = orientation==='vertical'?   y+i : y;
+        if (xi>9||yi>9 || isBlocked(xi,yi)) { clearPreview(); return; }
+        cells.push(boardEl.querySelector(`[data-x="${xi}"][data-y="${yi}"]`));
       }
       cells.forEach(c => {
         c.classList.remove('bg-blue-700');
-        c.classList.add(currentShip.color);
+        c.classList.add('bg-blue-900');
       });
       previewCells = cells;
     });
@@ -148,31 +152,39 @@ document.addEventListener('DOMContentLoaded', () => {
     cell.addEventListener('drop', () => {
       if (!currentShip || previewCells.length !== currentShip.size) return;
 
-      // Fijar barco definitivamente
-      previewCells.forEach(c => {
-        c.dataset.occupiedBy = currentShip.id;
-      });
-
-      placedShips.push({
+      const shipRecord = {
+        id: currentShip.id,
         size: currentShip.size,
+        color: currentShip.color,
+        el: currentShip.el,
         cells: previewCells.map(c => [+c.dataset.x, +c.dataset.y])
+      };
+
+      shipRecord.cells.forEach(([xi, yi]) => {
+        const c = boardEl.querySelector(`[data-x="${xi}"][data-y="${yi}"]`);
+        c.classList.remove('bg-blue-900');
+        c.classList.add(shipRecord.color);
+        c.dataset.occupiedBy = shipRecord.id;
       });
 
-      currentShip.el.draggable = false;
-      currentShip.el.classList.add('opacity-50','cursor-not-allowed');
+      placedShips.push(shipRecord);
 
+      shipRecord.el.draggable = false;
+      shipRecord.el.classList.remove(shipRecord.color);
+      shipRecord.el.classList.add('bg-gray-600','opacity-50','cursor-not-allowed');
+
+      clearPreview();
       currentShip = null;
-      previewCells = [];
 
       if (placedShips.length === shipEls.length) {
         startBtn.disabled = false;
+        statusEl.textContent = '¡Listo para jugar!';
       }
     });
   });
 
-  // Al hacer clic en “¡A jugar!”, enviamos al servidor
   startBtn.addEventListener('click', async () => {
-    statusEl.textContent = 'Esperando rival…';
+    statusEl.textContent = '';
     try {
       const res = await fetch(setupUrl, {
         method: 'POST',
@@ -182,20 +194,35 @@ document.addEventListener('DOMContentLoaded', () => {
           'Accept':'application/json',
           'X-CSRF-TOKEN':'{{ csrf_token() }}'
         },
-        body: JSON.stringify({ ships: placedShips })
+        body: JSON.stringify({ ships: placedShips.map(s => ({ size: s.size, cells: s.cells })) })
       });
       const json = await res.json();
-      if (!json.ok) {
-        statusEl.textContent = 'Error guardando posiciones';
-        return;
-      }
-      // Si ya ambos colocaron, arrancamos
       if (json.start) {
-        window.location.href = "{{ route('battleship.pvp.play', $battleship_game) }}";
+        window.location.href = playUrl;
+      } else {
+        statusEl.textContent = 'Esperando a que el rival coloque sus barcos…';
       }
     } catch (e) {
       console.error(e);
-      statusEl.textContent = 'Error de red';
+      statusEl.textContent = 'Error de red.';
+    }
+  });
+
+  const pusher = new Pusher('{{ env('PUSHER_APP_KEY') }}', {
+    cluster: '{{ env('PUSHER_APP_CLUSTER') }}',
+    authEndpoint: '/broadcasting/auth',
+    auth: {
+      headers: {
+        'X-CSRF-TOKEN': '{{ csrf_token() }}'
+      }
+    }
+  });
+
+  const channel = pusher.subscribe('private-battleship.pvp.' + gameId);
+
+  channel.bind('ShipsPlaced', e => {
+    if (placedShips.length === shipEls.length && e.playerId !== userId) {
+      window.location.href = playUrl;
     }
   });
 });

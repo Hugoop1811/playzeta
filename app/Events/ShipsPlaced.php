@@ -1,27 +1,30 @@
 <?php
-
-// app/Events/ShipsPlaced.php
 namespace App\Events;
 
 use Illuminate\Broadcasting\PrivateChannel;
 use Illuminate\Contracts\Broadcasting\ShouldBroadcast;
-use App\Models\BattleshipGame;
-use Illuminate\Support\Facades\Auth;
 
 class ShipsPlaced implements ShouldBroadcast
 {
-    public function __construct(public BattleshipGame $game){}
+    public $gameId;
+    public $playerId;
+
+    public function __construct(int $gameId, int $playerId)
+    {
+        $this->gameId = $gameId;
+        $this->playerId = $playerId;
+    }
 
     public function broadcastOn()
     {
-        return new PrivateChannel("battleship.pvp.{$this->game->id}");
+        return new PrivateChannel('battleship.' . $this->gameId);
     }
 
     public function broadcastWith()
     {
         return [
-            'playerId' => Auth::user()->id,
+            'gameId' => $this->gameId,
+            'playerId' => $this->playerId,
         ];
     }
 }
-
