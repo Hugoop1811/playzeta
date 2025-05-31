@@ -28,7 +28,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   window.Echo
     .private(`battleship.pvp.${gameId}`)
-    .listen('GameJoined', () => {
+    .listen('.GameJoined', () => {
       document.getElementById('status').textContent = '¡Rival conectado! Redirigiendo...';
       setTimeout(() => window.location.href = redirectUrl, 1000);
     });

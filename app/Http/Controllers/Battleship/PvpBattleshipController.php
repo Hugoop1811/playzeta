@@ -98,6 +98,8 @@ class PvpBattleshipController extends Controller
             $battleship_game->status = 'playing';
             $battleship_game->save();
 
+            broadcast(new \App\Events\GameReady($battleship_game->id))->toOthers();
+
             return response()->json(['ok' => true, 'start' => true]);
         }
 
@@ -111,15 +113,19 @@ class PvpBattleshipController extends Controller
             return redirect()->route('battleship.pvp.setup.view', $battleship_game);
         }
 
+        $isCreator = Auth::id() === $battleship_game->user_id;
+
         $playerBoard = $battleship_game->boards()
-            ->where('owner', 'player')
+            ->where('owner', $isCreator ? 'player' : 'opponent')
             ->firstOrFail();
-        $oppBoard    = $battleship_game->boards()
-            ->where('owner', 'opponent')
+
+        $oppBoard = $battleship_game->boards()
+            ->where('owner', $isCreator ? 'opponent' : 'player')
             ->firstOrFail();
 
         return view('games.battleship.pvp.play', compact('battleship_game', 'playerBoard', 'oppBoard'));
     }
+
 
     /** 8) Disparar contra el rival */
     public function move(Request $request, BattleshipGame $battleship_game)

@@ -19,6 +19,17 @@ use Illuminate\Support\Facades\Broadcast;
 | Web Routes - PlayZeta
 |--------------------------------------------------------------------------
 */
+Route::view('/pusher-receiver', 'pusher.receiver');
+Route::view('/pusher-sender', 'pusher.sender');
+use Illuminate\Http\Request;
+use App\Events\TestPusherEvent;
+
+Route::post('/pusher-send-message', function (Request $request) {
+    $message = $request->input('message');
+    broadcast(new TestPusherEvent(['message' => $message]));
+    return back()->with('status', 'Mensaje enviado');
+});
+
 
 Broadcast::routes();
 // Página principal
@@ -129,5 +140,14 @@ Route::prefix('battleship')->name('battleship.')->group(function () {
 Route::get('/test-pusher', function () {
      return view('test-pusher');
 })->middleware('auth');
+
+Route::post('/api/battleship/audio', function (Illuminate\Http\Request $request) {
+    $vol = $request->input('volume');
+    if (is_numeric($vol) && $vol >= 0 && $vol <= 1) {
+        session(['battleship_bg_volume' => $vol]);
+        return response()->json(['success' => true]);
+    }
+    return response()->json(['error' => 'Invalid volume'], 400);
+});
 
 require __DIR__ . '/auth.php';

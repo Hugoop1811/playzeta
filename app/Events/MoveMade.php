@@ -2,6 +2,7 @@
 
 namespace App\Events;
 
+use App\Models\BattleshipGame;
 use Illuminate\Broadcasting\PrivateChannel;
 use Illuminate\Contracts\Broadcasting\ShouldBroadcast;
 use Illuminate\Queue\SerializesModels;
@@ -40,11 +41,33 @@ class MoveMade implements ShouldBroadcast
 
     public function broadcastOn()
     {
-        return new PrivateChannel('battleship.' . $this->gameId);
+        return new PrivateChannel('battleship.pvp.' . $this->gameId);
     }
 
     public function broadcastAs()
     {
         return 'MoveMade';
+    }
+
+    public function broadcastWith()
+    {
+        $payload = [
+            'coordinates' => $this->coordinates,
+            'result'      => $this->result,
+            'shooter'     => $this->shooter,
+            'cells'       => $this->sunkCells,
+            'gameOver'    => $this->gameOver,
+            'winner'      => $this->winner,
+        ];
+
+        if ($this->gameOver) {
+            $game = BattleshipGame::with('boards')->find($this->gameId);
+            $opponentBoard = $game->boards
+                ->firstWhere('owner', $this->shooter === 'player' ? 'player' : 'opponent');
+
+            $payload['opponentShips'] = $opponentBoard?->ships ?? [];
+        }
+
+        return $payload;
     }
 }

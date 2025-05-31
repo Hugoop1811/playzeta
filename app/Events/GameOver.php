@@ -23,7 +23,7 @@ class GameOver implements ShouldBroadcast
 
     public function broadcastOn()
     {
-        return new PrivateChannel('battleship.' . $this->gameId);
+        return new PrivateChannel('battleship.pvp' . $this->gameId);
     }
 
     public function broadcastAs()
