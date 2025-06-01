@@ -6,6 +6,8 @@ use App\Http\Controllers\WordleController;
 use App\Http\Controllers\BattleshipController;
 use App\Models\BattleshipGame;
 use App\Http\Controllers\SpeedClickController;
+use App\Http\Controllers\SpeedclickScoreController;
+use App\Http\Controllers\SpeedclickChallengeScoreController;
 use App\Http\Controllers\WordleTimeAttackController;
 use Illuminate\Foundation\Auth\EmailVerificationRequest;
 use App\Http\Controllers\WordleTimeScoreController;
@@ -70,7 +72,12 @@ Route::post('/api/wordle/time-attack-score', [WordleTimeScoreController::class, 
 
 // Speed Click
 Route::get('/speedclick', [SpeedClickController::class, 'index'])->name('speedclick.index');
+Route::post('/speedclick/score', [SpeedclickScoreController::class, 'store']);
+Route::get('/speedclick/leaderboard', [SpeedclickScoreController::class, 'leaderboard']);
 Route::get('/speedclick/challenge', [SpeedClickController::class, 'challenge'])->name('speedclick.challenge');
+Route::post('/speedclick/challenge/score', [SpeedclickChallengeScoreController::class, 'store']);
+Route::get('/speedclick/challenge/leaderboard', [SpeedclickChallengeScoreController::class, 'leaderboard']);
+
 
 
 
