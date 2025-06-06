@@ -3,6 +3,8 @@
 @section('title', 'Speed Click Challenge')
 
 @section('content')
+
+
 <style>
     html, body {
         margin: 0;
@@ -210,6 +212,8 @@ select option {
         <p id="status"></p>
         <p id="counter"></p>
         <button id="play-again" class="btn btn-primary" style="display: none;">Volver a jugar</button>
+        <button id="view-leaderboard" class="btn btn-success" style="display: none;">Ver Mejores Puntuaciones</button>
+
     </div>
 
     <div id="result"></div>
@@ -291,6 +295,26 @@ select option {
         result.textContent = `⏱️ Tiempo medio de reacción: ${avg} ms`;
         result.style.display = "block";
         playAgainBtn.style.display = "inline-block";
+        document.getElementById("view-leaderboard").style.display = "inline-block";
+        fetch('/speedclick/challenge/score', {
+    method: 'POST',
+    headers: {
+        'Content-Type': 'application/json',
+        'X-CSRF-TOKEN': '{{ csrf_token() }}'
+    },
+    body: JSON.stringify({
+        reaction_time_ms: avg
+    })
+})
+
+.then(response => response.json())
+.then(data => {
+    console.log('Puntuación guardada:', data);
+})
+.catch(error => {
+    console.error('Error al guardar la puntuación:', error);
+});
+
     }
 
     target.addEventListener("click", () => {
@@ -302,6 +326,11 @@ select option {
     });
 
     startBtn.addEventListener("click", startGame);
+
+    document.getElementById("view-leaderboard").addEventListener("click", () => {
+    window.location.href = "/speedclick/challenge/leaderboard";
+});
+
 
     playAgainBtn.addEventListener("click", () => {
         startScreen.style.display = "flex";
