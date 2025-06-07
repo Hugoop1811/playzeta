@@ -8,10 +8,11 @@
     <div class="grid grid-cols-1 sm:grid-cols-2 gap-6 w-full max-w-3xl">
 
         <a href="{{ route('wordle.index') }}"
-           class="bg-gradient-to-r from-indigo-500 to-purple-600 p-6 rounded-xl shadow-lg hover:scale-105 transition-transform duration-300 flex flex-col items-center text-center">
-            <span class="text-2xl font-bold mb-2">Reto Diario</span>
-            <span class="text-sm text-zinc-200">Adivina la palabra del día</span>
-        </a>
+   class="bg-gradient-to-r from-emerald-500 to-cyan-500 p-6 rounded-xl shadow-lg hover:scale-105 transition-transform duration-300 flex flex-col items-center text-center">
+    <span class="text-2xl font-bold mb-2">Reto Diario</span>
+    <span class="text-sm text-zinc-200">Adivina la palabra del día</span>
+</a>
+
 
         <a href="{{ route('speedclick.challenge') }}"
            class="bg-gradient-to-r from-pink-500 to-rose-600 p-6 rounded-xl shadow-lg hover:scale-105 transition-transform duration-300 flex flex-col items-center text-center">
