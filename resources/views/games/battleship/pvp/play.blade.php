@@ -10,7 +10,7 @@
   @php
     $volDecimal = session('battleship_bg_volume', 0.3);
     $volPercent = (int) round($volDecimal * 100);
-    @endphp
+  @endphp
   <div class="absolute bottom-4 right-4">
     <button id="music-toggle" class="px-3 py-1 bg-gray-700 text-white rounded">🔊</button>
     <input id="volume-slider" type="range" min="0" max="100" step="1" value="{{ $volPercent }}" class="h-1 w-24">
@@ -132,34 +132,44 @@
       turnEl.textContent = myTurn ? '¡Es tu turno!' : 'Turno del rival…';
     }
 
+    let isWaiting = false;
+
     oppBoardEl.querySelectorAll('.cell-clickable').forEach(cell => {
       cell.addEventListener('click', async () => {
-      if (!myTurn) return;
+      if (!myTurn || isWaiting) return;
+
       const x = +cell.dataset.x, y = +cell.dataset.y;
       cell.classList.remove('cell-clickable');
+      isWaiting = true;
 
       cannonSound.currentTime = 0;
       cannonSound.play();
 
-      const res = await fetch(moveUrl, {
+      try {
+        const res = await fetch(moveUrl, {
         method: 'POST',
         credentials: 'same-origin',
         headers: {
-        'Content-Type': 'application/json',
-        'Accept': 'application/json',
-        'X-CSRF-TOKEN': '{{ csrf_token() }}'
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+          'X-CSRF-TOKEN': '{{ csrf_token() }}'
         },
         body: JSON.stringify({ x, y })
-      });
+        });
 
-      const json = await res.json();
-      if (json.error) {
+        const json = await res.json();
+        if (json.error) {
         statusEl.textContent = 'Error: ' + json.message;
+        isWaiting = false; // permitir intentar de nuevo si hubo error
         return;
-      }
+        }
 
-      myTurn = false;
-      updateTurn();
+        myTurn = false;
+        updateTurn();
+      } catch (e) {
+        console.error('Disparo fallido:', e);
+        isWaiting = false;
+      }
       });
     });
 

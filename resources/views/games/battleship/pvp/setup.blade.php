@@ -18,7 +18,8 @@
       <div id="player-board" class="grid grid-rows-10 grid-cols-10 gap-[0.06rem] p-2">
         @for($y = 0; $y < 10; $y++)
         @for($x = 0; $x < 10; $x++)
-      <div class="battleship-cell w-10 h-10 bg-blue-700 border border-blue-700" data-x="{{ $x }}" data-y="{{ $y }}">
+      <div class="battleship-cell w-10 h-10 bg-blue-700 border border-blue-700 touch-none select-none"
+      data-x="{{ $x }}" data-y="{{ $y }}">
       </div>
       @endfor
       @endfor
@@ -41,7 +42,7 @@
       @foreach($ships as $ship)
       <div draggable="true" data-id="{{ $ship['id'] }}" data-size="{{ $ship['size'] }}"
       data-color="{{ $ship['color'] }}"
-      class="ship {{ $ship['color'] }} text-white px-4 py-2 rounded cursor-grab hover:opacity-90">
+      class="ship {{ $ship['color'] }} text-white px-4 py-2 rounded cursor-grab hover:opacity-90 touch-none select-none">
       {{ $ship['label'] }} ({{ $ship['size'] }})
       </div>
     @endforeach
@@ -83,37 +84,64 @@
 
     shipEls.forEach(el => {
       el.addEventListener('dragstart', () => {
+      removeShipIfPlaced(el);
+      setCurrentShip(el);
+      });
+
+      // Soporte táctil para móviles
+      el.addEventListener('touchstart', e => {
+      e.preventDefault();
+      removeShipIfPlaced(el);
+      setCurrentShip(el);
+
+      const moveHandler = e2 => {
+        e2.preventDefault();
+        clearPreview();
+        const touch = e2.touches[0];
+        const target = document.elementFromPoint(touch.clientX, touch.clientY);
+        if (!target || !target.classList.contains('battleship-cell')) return;
+        previewPlacement(+target.dataset.x, +target.dataset.y);
+      };
+
+      const endHandler = e3 => {
+        if (currentShip && previewCells.length === currentShip.size) {
+        placeShip(previewCells);
+        }
+        document.removeEventListener('touchmove', moveHandler);
+        document.removeEventListener('touchend', endHandler);
+      };
+
+      document.addEventListener('touchmove', moveHandler, { passive: false });
+      document.addEventListener('touchend', endHandler);
+      });
+    });
+
+    function setCurrentShip(el) {
+      currentShip = {
+      id: el.dataset.id,
+      size: +el.dataset.size,
+      color: el.dataset.color,
+      el
+      };
+    }
+
+    function removeShipIfPlaced(el) {
       const id = el.dataset.id;
       const existing = placedShips.find(s => s.id === id);
       if (existing) {
-        // Limpia las celdas del tablero
-        existing.cells.forEach(([x, y]) => {
+      existing.cells.forEach(([x, y]) => {
         const c = boardEl.querySelector(`[data-x="${x}"][data-y="${y}"]`);
         c.className = 'battleship-cell w-10 h-10 bg-blue-700 border border-blue-700';
         delete c.dataset.occupiedBy;
-        });
-
-        // Quita de placedShips
-        const idx = placedShips.findIndex(s => s.id === id);
-        if (idx !== -1) placedShips.splice(idx, 1);
-
-        // Restaura estilo del barco
-        el.classList.remove('bg-gray-600', 'opacity-50');
-        el.classList.add(el.dataset.color);
-
-        // Desactiva botón hasta que estén todos de nuevo
-        startBtn.disabled = true;
-        statusEl.textContent = '';
-      }
-
-      currentShip = {
-        id: el.dataset.id,
-        size: +el.dataset.size,
-        color: el.dataset.color,
-        el
-      };
       });
-    });
+      const idx = placedShips.findIndex(s => s.id === id);
+      if (idx !== -1) placedShips.splice(idx, 1);
+      el.classList.remove('bg-gray-600', 'opacity-50');
+      el.classList.add(el.dataset.color);
+      startBtn.disabled = true;
+      statusEl.textContent = '';
+      }
+    }
 
     function clearPreview() {
       previewCells.forEach(c => {
@@ -136,25 +164,81 @@
       return false;
     }
 
+    function previewPlacement(x, y) {
+      const cells = [];
+      for (let i = 0; i < currentShip.size; i++) {
+      const xi = orientation === 'horizontal' ? x + i : x;
+      const yi = orientation === 'vertical' ? y + i : y;
+      if (xi > 9 || yi > 9 || isBlocked(xi, yi)) {
+        clearPreview();
+        return;
+      }
+      const cell = boardEl.querySelector(`[data-x="${xi}"][data-y="${yi}"]`);
+      cells.push(cell);
+      }
+      cells.forEach(c => {
+      c.classList.remove('bg-blue-700');
+      c.classList.add('bg-blue-900');
+      });
+      previewCells = cells;
+    }
+
+    function placeShip(cells) {
+      const shipRecord = {
+      id: currentShip.id,
+      size: currentShip.size,
+      color: currentShip.color,
+      el: currentShip.el,
+      cells: cells.map(c => [+c.dataset.x, +c.dataset.y])
+      };
+
+      shipRecord.cells.forEach(([xi, yi]) => {
+      const c = boardEl.querySelector(`[data-x="${xi}"][data-y="${yi}"]`);
+      c.classList.remove('bg-blue-900');
+      c.classList.add(shipRecord.color);
+      c.dataset.occupiedBy = shipRecord.id;
+      });
+
+      placedShips.push(shipRecord);
+
+      shipRecord.el.classList.remove(shipRecord.color);
+      shipRecord.el.classList.add('bg-gray-600', 'opacity-50');
+
+      shipRecord.cells.forEach(([xi, yi]) => {
+      const c = boardEl.querySelector(`.battleship-cell[data-x="${xi}"][data-y="${yi}"]`);
+      c.addEventListener('click', () => {
+        shipRecord.cells.forEach(([x0, y0]) => {
+        const cc = boardEl.querySelector(`.battleship-cell[data-x="${x0}"][data-y="${y0}"]`);
+        cc.classList.remove(shipRecord.color);
+        cc.classList.add('bg-blue-700');
+        delete cc.dataset.occupiedBy;
+        });
+        shipRecord.el.draggable = true;
+        shipRecord.el.classList.remove('bg-gray-600', 'opacity-50');
+        shipRecord.el.classList.add(shipRecord.color);
+        const idx = placedShips.findIndex(s => s.id === shipRecord.id);
+        placedShips.splice(idx, 1);
+        startBtn.disabled = true;
+        statusEl.textContent = '';
+      });
+      });
+
+      clearPreview();
+      currentShip = null;
+
+      const uniquePlacedShips = [...new Set(placedShips.map(s => s.id))];
+      if (uniquePlacedShips.length === shipEls.length) {
+      startBtn.disabled = false;
+      statusEl.textContent = '¡Listo para jugar!';
+      }
+    }
+
     boardEl.querySelectorAll('.battleship-cell').forEach(cell => {
       cell.addEventListener('dragover', e => {
       e.preventDefault();
       if (!currentShip) return;
       clearPreview();
-
-      const x = +cell.dataset.x, y = +cell.dataset.y;
-      const cells = [];
-      for (let i = 0; i < currentShip.size; i++) {
-        const xi = orientation === 'horizontal' ? x + i : x;
-        const yi = orientation === 'vertical' ? y + i : y;
-        if (xi > 9 || yi > 9 || isBlocked(xi, yi)) { clearPreview(); return; }
-        cells.push(boardEl.querySelector(`[data-x="${xi}"][data-y="${yi}"]`));
-      }
-      cells.forEach(c => {
-        c.classList.remove('bg-blue-700');
-        c.classList.add('bg-blue-900');
-      });
-      previewCells = cells;
+      previewPlacement(+cell.dataset.x, +cell.dataset.y);
       });
 
       cell.addEventListener('dragleave', () => {
@@ -164,58 +248,7 @@
 
       cell.addEventListener('drop', () => {
       if (!currentShip || previewCells.length !== currentShip.size) return;
-
-      const shipRecord = {
-        id: currentShip.id,
-        size: currentShip.size,
-        color: currentShip.color,
-        el: currentShip.el,
-        cells: previewCells.map(c => [+c.dataset.x, +c.dataset.y])
-      };
-
-      shipRecord.cells.forEach(([xi, yi]) => {
-        const c = boardEl.querySelector(`[data-x="${xi}"][data-y="${yi}"]`);
-        c.classList.remove('bg-blue-900');
-        c.classList.add(shipRecord.color);
-        c.dataset.occupiedBy = shipRecord.id;
-      });
-
-      placedShips.push(shipRecord);
-
-      shipRecord.el.classList.remove(shipRecord.color);
-      shipRecord.el.classList.add('bg-gray-600', 'opacity-50');
-
-      shipRecord.cells.forEach(([xi, yi]) => {
-        const c = boardEl.querySelector(`.battleship-cell[data-x="${xi}"][data-y="${yi}"]`);
-        const handler = () => {
-        // Quitar visual y datos
-        shipRecord.cells.forEach(([x0, y0]) => {
-          const cc = boardEl.querySelector(`.battleship-cell[data-x="${x0}"][data-y="${y0}"]`);
-          cc.classList.remove(shipRecord.color);
-          cc.classList.add('bg-blue-700');
-          delete cc.dataset.occupiedBy;
-        });
-        // Reactivar botón y color original
-        shipRecord.el.draggable = true;
-        shipRecord.el.classList.remove('bg-gray-600', 'opacity-50');
-        shipRecord.el.classList.add(shipRecord.color);
-        // Eliminar del array
-        const idx = placedShips.findIndex(s => s.id === shipRecord.id);
-        placedShips.splice(idx, 1);
-        // Desactivar “¡A jugar!” si falta alguno
-        startBtn.disabled = true;
-        statusEl.textContent = '';
-        };
-        c.addEventListener('click', handler);
-      });
-
-      clearPreview();
-      currentShip = null;
-
-      if (placedShips.length === shipEls.length) {
-        startBtn.disabled = false;
-        statusEl.textContent = '¡Listo para jugar!';
-      }
+      placeShip(previewCells);
       });
     });
 
@@ -253,8 +286,6 @@
       }
       }
     });
-
-    const channel = pusher.subscribe('private-battleship.pvp.' + gameId);
 
     window.Echo.private(`battleship.pvp.${gameId}`)
       .listen('.GameReady', () => {

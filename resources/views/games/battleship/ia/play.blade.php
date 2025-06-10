@@ -30,9 +30,6 @@
   <div class="grid justify-center mx-auto p-6 min-h-screen">
     <div class="bg-gray-900 p-6">
     <h1 class="text-2xl font-bold mb-4 text-white">Hundir la Flota</h1>
-    <p id="info" class="mb-4 text-gray-300">
-      Modo: <span class="font-semibold text-white">{{ ucfirst($level) }}</span>
-    </p>
     @php $diff = strtolower($battleship_game->difficulty) @endphp
     <div class="flex items-center mb-4">
       <p class="text-gray-300 mr-4">
